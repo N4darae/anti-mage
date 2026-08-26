@@ -147,11 +147,10 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 		})
 	}
 	if found == 0 {
-		s.Determination = Consistent
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
-			Value: "what this browser reported it could not do is consistent with what it showed",
-			Note:  strconv.Itoa(checked) + " unsupported report(s) examined",
+			Value: "nothing in this payload either confirms or contradicts what this browser reported it could not do",
+			Note:  strconv.Itoa(checked) + " unsupported report(s) examined, none of them answerable from the rest of the payload",
 		})
 		return s
 	}

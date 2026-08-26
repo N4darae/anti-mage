@@ -10,7 +10,6 @@ func sectionCapabilities(r Request, _ Inputs, _ claim) Section {
 
 	raw, ok := r.value("media.matrix")
 	if !ok {
-		s.Determination = Inconclusive
 		s.Rows = append(s.Rows, Row{Label: "codec answers", Value: "not collected", Note: "the collector did not report them"})
 		return s
 	}

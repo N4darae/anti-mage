@@ -35,5 +35,3 @@ var FontMeasurementBases = Table{
 }
 
 const FontMeasurementString = "mmmmmmmmmmlliWQ@0O"
-
-var FontMeasurementStringSource = Source{Origin: "probe input of this project's own design; glyph composition verifiable by inspection", Checked: "2026-08-25"}

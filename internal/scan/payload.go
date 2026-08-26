@@ -78,7 +78,3 @@ func (r Request) ReportedNames(id string) []string {
 	names, _ := nameSet(v)
 	return names
 }
-
-func (r Request) ReportedFontControls() []string {
-	return r.ReportedNames("font.controls")
-}

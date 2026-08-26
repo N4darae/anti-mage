@@ -47,10 +47,12 @@ func TestSuppressionCannotBuyConfidence(t *testing.T) {
 		{Determination: Inconclusive}, {Determination: Inconclusive}, {Determination: Inconclusive},
 		{Determination: Inconclusive}, {Determination: Inconclusive},
 	})
-	if suppressed.HumanConfidence > full.HumanConfidence && full.HumanConfidence == 0 {
-
-		t.Logf("suppression raised humanConfidence from %d to %d; the band alone cannot close this and the claim-versus-capability check is what must",
-			full.HumanConfidence, suppressed.HumanConfidence)
+	if suppressed.Band == BandCoherent {
+		t.Errorf("two sections of eight reached the band %q; a scan that established almost nothing must not reach the band that says the environment agrees", suppressed.Band)
+	}
+	if full.BotLikeness <= suppressed.BotLikeness {
+		t.Errorf("botLikeness: a scan carrying a contradiction scored %d and a scan that established almost nothing scored %d; the score is what must separate them",
+			full.BotLikeness, suppressed.BotLikeness)
 	}
 	if suppressed.HumanConfidence > humanConfidenceCap {
 		t.Errorf("humanConfidence = %d above the cap", suppressed.HumanConfidence)

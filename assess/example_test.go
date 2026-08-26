@@ -35,6 +35,9 @@ func Example() {
 	}
 	fmt.Println(a.Determination, a.Score, len(a.Supplied))
 
+	// Output:
+	// too little was read to characterise this environment either way
+	// insufficient 0 3
 }
 
 func ExampleEnvironment_Findings() {
@@ -46,6 +49,8 @@ func ExampleEnvironment_Findings() {
 	})
 	fmt.Println(a.Determination, a.Score)
 
+	// Output:
+	// discrepant 30
 }
 
 func ExampleDecode() {
@@ -61,4 +66,7 @@ func ExampleDecode() {
 	fmt.Println(env.Nonce, len(env.Observations), env.ElapsedMS, len(env.Findings))
 	fmt.Println(assess.Evaluate(env).Determination)
 
+	// Output:
+	// n1 1 0 0
+	// instrumented
 }

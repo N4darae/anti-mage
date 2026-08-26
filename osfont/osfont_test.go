@@ -145,8 +145,8 @@ func TestAtLeastReadsTheReleaseVerdict(t *testing.T) {
 	if got.AtLeast("10") != Present {
 		t.Errorf("AtLeast(10) = %v, want present", got.AtLeast("10"))
 	}
-	if got.AtLeast("99") != Inconclusive {
-		t.Errorf("AtLeast(99) = %v, want inconclusive for an unknown release", got.AtLeast("99"))
+	if _, present := got.Versions["99"]; present {
+		t.Error("a release this project holds no table for was given a row of its own")
 	}
 }
 

@@ -70,7 +70,22 @@ func TestWindowsMarkersMatchVendorPages(t *testing.T) {
 }
 
 func TestFontMeasurementBases(t *testing.T) {
-	if len(FontMeasurementBases.Values) != 3 {
-		t.Fatalf("expected the three CSS generic families, got %v", FontMeasurementBases.Values)
+	generic := map[string]bool{
+		"serif": true, "sans-serif": true, "cursive": true, "fantasy": true,
+		"monospace": true, "system-ui": true, "math": true, "ui-serif": true,
+		"ui-sans-serif": true, "ui-monospace": true, "ui-rounded": true,
+	}
+	if len(FontMeasurementBases.Values) < 2 {
+		t.Fatalf("a width comparison needs more than one baseline, got %v", FontMeasurementBases.Values)
+	}
+	seen := map[string]bool{}
+	for _, b := range FontMeasurementBases.Values {
+		if !generic[b] {
+			t.Errorf("baseline %q is not a CSS generic family, so a system could install a font by that name and the comparison would measure it", b)
+		}
+		if seen[b] {
+			t.Errorf("baseline %q is listed twice, which adds no comparison", b)
+		}
+		seen[b] = true
 	}
 }

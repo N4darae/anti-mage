@@ -194,6 +194,9 @@ func TestHostilePayloadsNeverPanicOrAccuse(t *testing.T) {
 			if !validDetermination(s.Determination) {
 				t.Fatalf("input %.60s: section %s has determination %q", in, s.ID, s.Determination)
 			}
+			if s.Determination == Contradiction || s.Determination == Instrumented {
+				t.Errorf("input %.60s: section %s answered %q; a value of the wrong shape is not a browser disagreeing with itself", in, s.ID, s.Determination)
+			}
 			for _, row := range s.Rows {
 				for _, r := range row.Value + row.Label + row.Note {
 					if r < 0x20 && r != '\n' && r != '\t' {
@@ -225,6 +228,12 @@ func TestTruncatedPayloadsRejectedNotMisread(t *testing.T) {
 			if !validDetermination(s.Determination) {
 				t.Fatalf("prefix of length %d produced determination %q", i, s.Determination)
 			}
+			if s.Determination == Contradiction || s.Determination == Instrumented {
+				t.Errorf("prefix of length %d made section %s answer %q; half a payload is not evidence", i, s.ID, s.Determination)
+			}
+		}
+		if rep.Summary.Band != BandNotEvaluated && rep.Summary.Band != BandInsufficient && rep.Summary.Band != BandCoherent {
+			t.Errorf("prefix of length %d reached the band %q", i, rep.Summary.Band)
 		}
 	}
 }

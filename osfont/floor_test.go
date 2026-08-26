@@ -76,10 +76,27 @@ func TestNoObservationProducesAnAccusation(t *testing.T) {
 
 	for i := range every {
 		for j := i; j < len(every) && j < i+6; j++ {
-			f := ReleaseFloor(every[i : j+1])
-			if f.Release != "" && f.Release != "10" && f.Release != "11" {
-				t.Fatalf("Release = %q, which is not a release in the table", f.Release)
+			window := every[i : j+1]
+			f := ReleaseFloor(window)
+			if f.Release != "" && !anyFamilyOfRelease(f.Release, window) {
+				t.Fatalf("Release = %q from %v, where no family of that release was observed", f.Release, window)
+			}
+			for _, rel := range f.AboveGap {
+				if !anyFamilyOfRelease(rel, window) {
+					t.Fatalf("AboveGap names %q from %v, where no family of that release was observed", rel, window)
+				}
 			}
 		}
 	}
+}
+
+func anyFamilyOfRelease(rel string, observed []string) bool {
+	for _, fam := range reference.WindowsVersionMarkerFonts[rel].Values {
+		for _, o := range observed {
+			if o == fam {
+				return true
+			}
+		}
+	}
+	return false
 }
