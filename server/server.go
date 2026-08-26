@@ -67,6 +67,10 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := requireLoopbackAddr(ln.Addr()); err != nil {
+		_ = ln.Close()
+		return err
+	}
 	srv := &http.Server{
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -88,12 +92,20 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 }
 
 func requireLoopback(host string) error {
-	if host == "" || host == "localhost" {
+	if host == "localhost" {
 		return nil
 	}
 	ip := net.ParseIP(host)
 	if ip == nil || !ip.IsLoopback() {
 		return fmt.Errorf("address %q is not loopback; this server serves the browser on this machine only", host)
+	}
+	return nil
+}
+
+func requireLoopbackAddr(a net.Addr) error {
+	t, ok := a.(*net.TCPAddr)
+	if !ok || t.IP == nil || !t.IP.IsLoopback() {
+		return fmt.Errorf("address %q is not loopback; this server serves the browser on this machine only", a.String())
 	}
 	return nil
 }
@@ -285,7 +297,7 @@ func replaceElementContents(page []byte, name string, body []byte) ([]byte, bool
 }
 
 func globalsScript() []byte {
-	return []byte(`<script>window.AM_BOOTSTRAP=window.antiMageBootstrap=(function(){try{` +
+	return []byte(`<script>window.AM_BOOTSTRAP=(function(){try{` +
 		`return JSON.parse(document.getElementById("` + bootstrapElementID + `").textContent);` +
 		`}catch(e){return null}})();</script>` + "\n")
 }

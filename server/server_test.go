@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -91,6 +93,11 @@ func TestOffsetInstantsSpanBothSeasons(t *testing.T) {
 	if jan == 0 || jul == 0 {
 		t.Errorf("got %d January and %d July instants; both seasons are needed so a daylight rule is sampled on each side", jan, jul)
 	}
+	for _, o := range got {
+		if !time.UnixMilli(o.EpochMs).UTC().Before(now) {
+			t.Errorf("instant %s is not in the past; the offset for an instant that has not happened is a prediction in both databases, and two predictions disagreeing is not a browser contradicting itself", o.Date)
+		}
+	}
 }
 
 func TestScanUsesTheIssuedInputsWhenTheNonceComesBack(t *testing.T) {
@@ -155,14 +162,31 @@ func TestScanRejectsAnOversizeBody(t *testing.T) {
 
 func TestScanRejectsGarbage(t *testing.T) {
 	s := newTestServer(t, nil)
-	for _, body := range []string{``, `not json`, `[]`, `"a string"`, `{"probes":[]}`} {
+	for _, body := range []string{``, `not json`, `[]`, `[1,2]`, `"a string"`, `42`, `true`, `{`, `{"probes":`} {
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/scan", strings.NewReader(body)))
-		if rec.Code == http.StatusOK {
-			var out map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-				t.Errorf("body %q produced 200 with a reply that is not JSON", body)
-			}
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("body %q status %d, want %d", body, rec.Code, http.StatusBadRequest)
+		}
+		if got := rec.Body.String(); got != "request body is not the expected JSON object\n" {
+			t.Errorf("body %q answered %q; every rejection carries the one fixed message and nothing the decoder saw", body, got)
+		}
+	}
+	for _, body := range []string{`{}`, `null`, `{"probes":[]}`, `{"probes":{}}`, `{"observations":"not an object"}`, `{"nonce":7}`} {
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/scan", strings.NewReader(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("body %q status %d, want %d", body, rec.Code, http.StatusOK)
+		}
+		var a assess.Assessment
+		if err := json.Unmarshal(rec.Body.Bytes(), &a); err != nil {
+			t.Fatalf("body %q produced a reply that is not an assessment: %v", body, err)
+		}
+		if a.Determination != assess.NotEvaluated {
+			t.Errorf("body %q reached %q; a payload carrying no observation must reach no determination", body, a.Determination)
+		}
+		if a.Score != 0 {
+			t.Errorf("body %q scored %d; a payload carrying no observation must score nothing", body, a.Score)
 		}
 	}
 }
@@ -210,11 +234,24 @@ func TestBootstrapIsInjectedIntoTheIndexPage(t *testing.T) {
 }
 
 func TestStaticFilesAreServedAndTraversalIsRefused(t *testing.T) {
-	files := fstest.MapFS{
-		"index.html": &fstest.MapFile{Data: []byte("<html><head></head><body></body></html>")},
-		"style.css":  &fstest.MapFile{Data: []byte("body{color:red}")},
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "secret.txt"), []byte("KEEP-THIS-OFF-THE-WIRE"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	s := newTestServer(t, files)
+	pages := filepath.Join(root, "web")
+	if err := os.Mkdir(pages, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"index.html": "<html><head></head><body></body></html>",
+		"style.css":  "body{color:red}",
+	} {
+		if err := os.WriteFile(filepath.Join(pages, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := New(Options{Addr: "127.0.0.1:0", Web: os.DirFS(pages), Log: log.New(io.Discard, "", 0)})
+
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/style.css", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "color:red") {
@@ -223,11 +260,20 @@ func TestStaticFilesAreServedAndTraversalIsRefused(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/css") {
 		t.Errorf("content type %q", ct)
 	}
-	for _, p := range []string{"/../go.mod", "/..%2fgo.mod", "/./../../etc/passwd"} {
+
+	escapes := []string{
+		"/../secret.txt", "/..%2fsecret.txt", "/%2e%2e/secret.txt",
+		"/./../secret.txt", "/../../secret.txt", "/web/../../secret.txt",
+		"/..\\secret.txt", "/a/../../secret.txt", "//../secret.txt",
+	}
+	for _, p := range escapes {
 		rec := httptest.NewRecorder()
 		s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
-		if bytes.Contains(rec.Body.Bytes(), []byte("module ")) {
+		if bytes.Contains(rec.Body.Bytes(), []byte("KEEP-THIS-OFF-THE-WIRE")) {
 			t.Errorf("%s escaped the page filesystem", p)
+		}
+		if rec.Code == http.StatusOK {
+			t.Errorf("%s was answered %d; a path outside the page filesystem has no answer", p, rec.Code)
 		}
 	}
 }
@@ -250,7 +296,7 @@ func TestPlaceholderWhenTheIndexPageIsAbsent(t *testing.T) {
 
 func TestNonLoopbackAddressIsRefused(t *testing.T) {
 
-	for _, addr := range []string{"0.0.0.0:8787", "198.51.100.10:8787", "[::]:8787"} {
+	for _, addr := range []string{"0.0.0.0:8787", "198.51.100.10:8787", "[::]:8787", ":8787", ":0", "[::1%25lo]:0"} {
 		s := New(Options{Addr: addr, Log: log.New(io.Discard, "", 0)})
 		if err := s.ListenAndServe(context.Background()); err == nil {
 			t.Errorf("address %q was accepted; this server examines the browser on this machine only", addr)

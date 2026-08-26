@@ -12,12 +12,11 @@ import (
 )
 
 type Bootstrap struct {
-	V        int            `json:"v"`
-	Nonce    string         `json:"nonce"`
-	IssuedAt string         `json:"issuedAt"`
-	Font     BootstrapFont  `json:"font"`
-	Time     BootstrapTime  `json:"time"`
-	Notes    BootstrapNotes `json:"notes"`
+	V        int           `json:"v"`
+	Nonce    string        `json:"nonce"`
+	IssuedAt string        `json:"issuedAt"`
+	Font     BootstrapFont `json:"font"`
+	Time     BootstrapTime `json:"time"`
 
 	Fonts BootstrapFont `json:"fonts"`
 	Dates []string      `json:"dates"`
@@ -37,11 +36,6 @@ type OffsetSample struct {
 	Date    string `json:"date"`
 	EpochMs int64  `json:"epochMs"`
 	ISO     string `json:"iso"`
-}
-
-type BootstrapNotes struct {
-	Merge    string `json:"merge"`
-	EchoBack string `json:"echoBack"`
 }
 
 const offsetSampleCount = 8
@@ -99,9 +93,14 @@ func (i *issuer) issue(now time.Time) (Bootstrap, error) {
 			delete(i.live, k)
 		}
 	}
-	if len(i.live) >= maxLiveIssues {
-
-		i.live = map[string]issued{}
+	for len(i.live) >= maxLiveIssues {
+		oldest, at := "", time.Time{}
+		for k, v := range i.live {
+			if oldest == "" || v.at.Before(at) {
+				oldest, at = k, v.at
+			}
+		}
+		delete(i.live, oldest)
 	}
 	i.live[nonce] = issued{
 		at: now,
@@ -127,10 +126,6 @@ func (i *issuer) issue(now time.Time) (Bootstrap, error) {
 		Fonts:    font,
 		Dates:    iso,
 		Time:     BootstrapTime{Offsets: samples},
-		Notes: BootstrapNotes{
-			Merge:    "override only the keys carried here; keep your own defaults for every other key",
-			EchoBack: "send nonce back as the top-level \"nonce\" field of POST /api/scan",
-		},
 	}, nil
 }
 
@@ -192,11 +187,10 @@ func offsetInstants(now time.Time, n int) ([]OffsetSample, error) {
 	if n < 2 {
 		n = 2
 	}
-	years := (n + 1) / 2
-	out := make([]OffsetSample, 0, years*2)
-	startYear := now.UTC().Year() - years + 2
-	for y := startYear; len(out) < n; y++ {
-		for _, month := range []time.Month{time.January, time.July} {
+	utc := now.UTC()
+	out := make([]OffsetSample, 0, n)
+	for y := utc.Year(); len(out) < n; y-- {
+		for _, month := range []time.Month{time.July, time.January} {
 			if len(out) >= n {
 				break
 			}
@@ -205,6 +199,9 @@ func offsetInstants(now time.Time, n int) ([]OffsetSample, error) {
 				return nil, err
 			}
 			t := time.Date(y, month, day, 12, 0, 0, 0, time.UTC)
+			if !t.Before(utc) {
+				continue
+			}
 			out = append(out, OffsetSample{
 				Date:    t.Format("2006-01-02"),
 				EpochMs: t.UnixMilli(),
