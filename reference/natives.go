@@ -44,8 +44,21 @@ var TrustedErrorNames = Table{
 }
 
 var TrustedDOMExceptionNames = Table{
-	Values:   []string{"InvalidStateError", "SecurityError"},
-	Source:   Source{Origin: "WebIDL, DOMException error names table (webidl.spec.whatwg.org/#dfn-error-names-table)", Checked: "2026-08-25"},
+
+	Values: []string{
+		"AbortError", "ConstraintError", "DataCloneError", "DataError",
+		"EncodingError", "HierarchyRequestError", "InUseAttributeError",
+		"IndexSizeError", "InvalidAccessError", "InvalidCharacterError",
+		"InvalidModificationError", "InvalidNodeTypeError",
+		"InvalidStateError", "NamespaceError", "NetworkError",
+		"NoModificationAllowedError", "NotAllowedError", "NotFoundError",
+		"NotReadableError", "NotSupportedError", "OperationError",
+		"OptOutError", "QuotaExceededError", "ReadOnlyError", "SecurityError",
+		"SyntaxError", "TimeoutError", "TransactionInactiveError",
+		"TypeMismatchError", "URLMismatchError", "UnknownError",
+		"VersionError", "WrongDocumentError",
+	},
+	Source:   Source{Origin: "WebIDL, DOMException names table (webidl.spec.whatwg.org/#dfn-error-names-table): every row of the table, read from the specification text", Checked: "2026-08-26"},
 	Verified: true,
 }
 
@@ -53,10 +66,4 @@ var CSSSystemFontKeywords = Table{
 	Values:   []string{"caption", "icon", "menu", "message-box", "small-caption", "status-bar"},
 	Source:   Source{Origin: "CSS Fonts Module Level 4, system-family-name value (w3.org/TR/css-fonts-4/#system-family-name-value)", Checked: "2026-08-25"},
 	Verified: true,
-}
-
-var BraveNativeToString = Table{
-	Values:   []string{"function isBrave() { [native code] }"},
-	Source:   Source{Origin: "derived from the measured V8 native-function toString form (NativeToStringForms) applied to the property name isBrave", Checked: "2026-08-25"},
-	Verified: false,
 }

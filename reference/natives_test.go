@@ -6,7 +6,7 @@ import (
 )
 
 func TestNativeToStringAcceptedForms(t *testing.T) {
-	forms := NativeToStringForms("isBrave")
+	forms := NativeToStringForms("getContext")
 	all := append(append([]string{}, forms.Measured.Values...), forms.OtherEngine.Values...)
 	if len(all) != 6 {
 		t.Fatalf("expected 6 accepted forms, got %d", len(all))
@@ -21,7 +21,7 @@ func TestNativeToStringAcceptedForms(t *testing.T) {
 		}
 		seen[f] = true
 	}
-	if !seen["function isBrave() { [native code] }"] {
+	if !seen["function getContext() { [native code] }"] {
 		t.Error("the measured V8 form is missing from the accepted set")
 	}
 	if !forms.Measured.Verified {
@@ -33,7 +33,7 @@ func TestNativeToStringAcceptedForms(t *testing.T) {
 }
 
 func TestMeasuredNativeToStringFormsExcludeWhitespaceVariants(t *testing.T) {
-	forms := NativeToStringForms("isBrave")
+	forms := NativeToStringForms("getContext")
 	measured := forms.Measured.Values
 	if len(measured) != 3 {
 		t.Fatalf("expected 3 measured forms, got %d: %v", len(measured), measured)
@@ -47,13 +47,6 @@ func TestMeasuredNativeToStringFormsExcludeWhitespaceVariants(t *testing.T) {
 		if !strings.Contains(f, "\n") {
 			t.Errorf("other-engine form %q is missing its whitespace variant", f)
 		}
-	}
-}
-
-func TestBraveNativeToStringMatchesMeasuredForm(t *testing.T) {
-	forms := NativeToStringForms("isBrave")
-	if len(BraveNativeToString.Values) != 1 || BraveNativeToString.Values[0] != forms.Measured.Values[0] {
-		t.Errorf("BraveNativeToString = %v, want %q", BraveNativeToString.Values, forms.Measured.Values[0])
 	}
 }
 
@@ -78,11 +71,16 @@ func TestErrorNamesCoverStandardConstructors(t *testing.T) {
 			t.Errorf("standard error constructor %q is missing from the allowlist", want)
 		}
 	}
+
+	overlap := []string{}
 	for _, dom := range TrustedDOMExceptionNames.Values {
 		for _, got := range TrustedErrorNames.Values {
 			if got == dom {
-				t.Errorf("DOMException name %q must not appear among the Error constructors", dom)
+				overlap = append(overlap, dom)
 			}
 		}
+	}
+	if strings.Join(overlap, ",") != "SyntaxError" {
+		t.Errorf("the overlap between the two namespaces drifted from the one name the specification documents: %v", overlap)
 	}
 }

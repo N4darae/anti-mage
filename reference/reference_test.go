@@ -15,7 +15,6 @@ func allTables() map[string]Table {
 		"TrustedErrorNames":               TrustedErrorNames,
 		"TrustedDOMExceptionNames":        TrustedDOMExceptionNames,
 		"NativeFunctionOwnKeys":           NativeFunctionOwnKeys,
-		"BraveNativeToString":             BraveNativeToString,
 		"NativeToStringForms.Measured":    forms.Measured,
 		"NativeToStringForms.OtherEngine": forms.OtherEngine,
 	}
