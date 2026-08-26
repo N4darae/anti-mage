@@ -164,6 +164,10 @@
     var p = probe(id);
     return p && p.value && p.value.reason ? p.value.reason : null;
   }
+  function praw(id) {
+    var p = probe(id);
+    return p && Object.prototype.hasOwnProperty.call(p, "value") ? p.value : null;
+  }
   function pmeta(name) {
     var m = state.payload && state.payload.meta;
     return m && m[name] ? m[name] : null;
@@ -930,6 +934,58 @@
     return out;
   }
 
+  function claimedProbeIDs() {
+    var seen = {};
+    GROUPS.forEach(function (g) {
+      (g.probes || []).forEach(function (id) {
+        seen[id] = 1;
+      });
+    });
+    return seen;
+  }
+
+  function unclaimedProbeIDs() {
+    var p = state.payload;
+    if (!p) return [];
+    var claimed = claimedProbeIDs();
+    var all = Array.isArray(p.ids) && p.ids.length ? p.ids : Object.keys(p.probes || {});
+    var out = [];
+    all.forEach(function (id) {
+      if (!claimed[id] && out.indexOf(id) < 0) out.push(id);
+    });
+    out.sort();
+    return out;
+  }
+
+  function plainValue(v) {
+    var s;
+    try {
+      s = JSON.stringify(v, null, 2);
+    } catch (e) {
+      s = null;
+    }
+    if (typeof s !== "string") s = String(v);
+    if (s.length > 6000) s = s.slice(0, 6000) + "\n\u2026 " + (s.length - 6000) + " more characters, not shown";
+    return s;
+  }
+
+  function renderUnclaimed() {
+    var ids = unclaimedProbeIDs();
+    if (!ids.length) return null;
+    var out = [probeStrip(ids)];
+    ids.forEach(function (id) {
+      var reason = preason(id);
+      var v = praw(id);
+      out.push(
+        block(id, [
+          h("p", { class: "absent", text: "status: " + pstatus(id) + (reason ? " \u2014 " + reason : "") }),
+          v === null || v === undefined ? null : h("pre", { class: "payload", text: plainValue(v) })
+        ])
+      );
+    });
+    return out;
+  }
+
   var GROUPS = [
     { id: "platform", title: "Platform claim", probes: ["scope.main"], render: renderPlatform, scale: null },
     {
@@ -987,15 +1043,18 @@
       }
     },
     { id: "auto", title: "Remote-control surface", probes: ["auto.residue"], render: renderAuto, scale: null },
-    { id: "perm", title: "Permissions", probes: ["perm.state"], render: renderPerm, scale: null }
+    { id: "perm", title: "Permissions", probes: ["perm.state"], render: renderPerm, scale: null },
+    { id: "rest", title: "Everything else this browser reported", probes: [], render: renderUnclaimed, scale: null }
   ];
 
   function sectionNode(group) {
+    var content = group.render();
+    if (content === null && !(group.probes || []).length) return null;
     var d = h("details", { class: "sec", id: "sec-" + group.id, open: "" });
     var scale = group.scale ? group.scale() : null;
     d.appendChild(h("summary", null, h("h2", { text: group.title }), scale ? h("span", { class: "sec-scale", text: scale }) : null));
     var body = h("div", { class: "sec-body" }, probeStrip(group.probes));
-    append(body, group.render());
+    append(body, content);
     d.appendChild(body);
     return d;
   }
@@ -1078,7 +1137,9 @@
   function renderAll() {
     var host = document.getElementById("sections");
     clear(host);
-    var nodes = GROUPS.map(sectionNode);
+    var nodes = GROUPS.map(sectionNode).filter(function (n) {
+      return n !== null;
+    });
     var idx = document.getElementById("index");
     clear(idx);
     idx.appendChild(indexNode(nodes));
