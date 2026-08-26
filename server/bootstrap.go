@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -215,24 +216,48 @@ func offsetInstants(now time.Time, n int) ([]OffsetSample, error) {
 }
 
 func inventedFamilies(n int) ([]string, error) {
+
 	shapes := []func(string) string{
-		func(h string) string { return "Zzqx " + h + " Absent" },
-		func(h string) string { return "Segoe UI " + h + " Phantom" },
-		func(h string) string { return "Helvetica " + h + " Composite" },
-		func(h string) string { return "Arial " + h + "ica" },
-		func(h string) string { return "__control_" + h + "__" },
-		func(h string) string { return h + " Nova Nonexistent" },
-		func(h string) string { return "Cambria " + h + " Unreal" },
+		func(t string) string { return t + " Sans" },
+		func(t string) string { return t + " Grotesk" },
+		func(t string) string { return "Segoe " + t },
+		func(t string) string { return t + " Text Pro" },
+		func(t string) string { return "Helvetica " + t },
+		func(t string) string { return t + " Display" },
+		func(t string) string { return t + " Neue" },
 	}
 	out := make([]string, 0, n)
 	for k := 0; k < n; k++ {
-		h, err := randomHex(4)
+		t, err := inventedToken()
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, shapes[k%len(shapes)](h))
+		out = append(out, shapes[k%len(shapes)](t))
 	}
 	return out, nil
+}
+
+const (
+	tokenConsonants = "bcdfghjklmnprstvwz"
+	tokenVowels     = "aeiou"
+	tokenSyllables  = 5
+)
+
+func inventedToken() (string, error) {
+	b := make([]byte, 0, tokenSyllables*2)
+	for k := 0; k < tokenSyllables; k++ {
+		c, err := randomInt(0, len(tokenConsonants)-1)
+		if err != nil {
+			return "", err
+		}
+		v, err := randomInt(0, len(tokenVowels)-1)
+		if err != nil {
+			return "", err
+		}
+		b = append(b, tokenConsonants[c], tokenVowels[v])
+	}
+
+	return strings.ToUpper(string(b[0:1])) + string(b[1:]), nil
 }
 
 func randomHex(nBytes int) (string, error) {
