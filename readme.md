@@ -15,11 +15,12 @@ describes cannot be read as evidence by the code that consumes it.
   a named engine build. Every exported table is a `Table`, carrying a
   `Source` (origin and the date it was checked) and a `Verified` flag.
 
-- `osfont` — reads the font tables in `reference` and turns a set of resolved
-  font families into a verdict on the Windows release that produced them. It
-  reports `Present`, `Absent`, `Inconclusive`, or `Unverified` — never a score
-  or a probability — and treats anything absent from a table as unknown rather
-  than suspicious.
+- `osfont` — reads the font tables in `reference` and answers two questions
+  about a set of resolved font families. `EvaluateWindows` gives a per-release
+  verdict: `Present`, `Absent`, `Inconclusive`, or `Unverified` — never a score
+  or a probability. `ReleaseFloor` gives the oldest release the observation is
+  compatible with, counting a release as reached when any family it introduced
+  resolved. Neither treats absence from a table as suspicious.
 
 ## Usage
 
@@ -29,7 +30,18 @@ import "github.com/N4darae/anti-mage/osfont"
 res := osfont.EvaluateWindows(resolvedFamilies)
 res.AtLeast("10") // present, absent, inconclusive, or unverified
 res.Skipped       // families excluded as independent of the OS
+
+f := osfont.ReleaseFloor(resolvedFamilies)
+f.Release         // oldest release the observation supports, "" if none
+f.AboveGap        // releases reported above a gap; they do not narrow
 ```
+
+Font detection by advance width is unreliable per family rather than per
+release: a substituting font stack answers for a family the machine does not
+have, an icon font carries no glyph for an ASCII probe string, and a
+script-supplemental package arrives only once its language is enabled. So
+`ReleaseFloor` reads the presence of a release and never the shape of what is
+missing, and it has no way to report a release as impossible.
 
 ## Provenance model
 
