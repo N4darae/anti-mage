@@ -7,9 +7,10 @@ func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 	var t tally
 
 	mm := explainedBy(c, keyMatchMedia)
+	cascade := explainedBy(c, keyMatchMedia, keyGetComputedStyle)
 
-	applied, failed := mediaPathReadStylesheet(r, &s, mm)
-	t.fold(applied, failed, mm)
+	applied, failed := mediaPathReadStylesheet(r, &s, cascade)
+	t.fold(applied, failed, cascade)
 	applied, failed = mediaPathReadComplement(r, &s, mm)
 	t.fold(applied, failed, mm)
 
@@ -48,7 +49,7 @@ const mediaPathMaxEntries = 500
 
 const mediaPathMaxRows = 8
 
-func mediaPathReadStylesheet(r Request, s *Section, mm explanation) (applied, failed int) {
+func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applied, failed int) {
 	raw, ok := r.value("media.stylesheet")
 	if !ok {
 		s.Rows = append(s.Rows, Row{Label: "stylesheet probe", Value: "not collected", Note: "the collector did not report it"})
@@ -104,7 +105,7 @@ func mediaPathReadStylesheet(r Request, s *Section, mm explanation) (applied, fa
 				s.Rows = append(s.Rows, Row{
 					Label: "matchMedia vs the cascade",
 					Value: "(" + op + "-" + feature + ": " + itoa(px) + "px): matchMedia said " + mediaPathBoolWord(js) + ", the cascade said " + mediaPathBoolWord(css),
-					Note:  mm.annotate("the same query, evaluated by two paths of the same engine, must agree"),
+					Note:  cascade.annotate("the same query, evaluated by two paths of the same engine, must agree"),
 				})
 			}
 		}
@@ -158,7 +159,7 @@ func mediaPathReadStylesheet(r Request, s *Section, mm explanation) (applied, fa
 				s.Rows = append(s.Rows, Row{
 					Label: "matchMedia vs the cascade",
 					Value: clip(feature, 40) + ": matchMedia said " + clip(b.jsTrue[0], 40) + ", the cascade said " + clip(b.cssTrue[0], 40),
-					Note:  mm.annotate("this feature's values are mutually exclusive, and the same query evaluated by two paths of the same engine must agree"),
+					Note:  cascade.annotate("this feature's values are mutually exclusive, and the same query evaluated by two paths of the same engine must agree"),
 				})
 			}
 		}

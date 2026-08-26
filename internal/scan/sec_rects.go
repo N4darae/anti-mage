@@ -28,20 +28,20 @@ func rectRead(v any, path ...string) (rectPoint, bool) {
 	return p, true
 }
 
-func rectAssertEqual(s *Section, label string, got, want float64) (applied, failed int) {
+func rectAssertEqual(s *Section, label string, got, want float64, e explanation) (applied, failed int) {
 	applied = 1
 	if math.Abs(got-want) > rectTolerance {
 		failed = 1
 		s.Rows = append(s.Rows, Row{
 			Label: label,
 			Value: "does not hold",
-			Note:  "computed " + itoa(got) + ", expected " + itoa(want) + " from this rect's own other fields",
+			Note:  e.annotate("computed " + itoa(got) + ", expected " + itoa(want) + " from this rect's own other fields"),
 		})
 	}
 	return
 }
 
-func rectCheckSelfConsistency(s *Section, label string, p rectPoint) (applied, failed int) {
+func rectCheckSelfConsistency(s *Section, label string, p rectPoint, e explanation) (applied, failed int) {
 	if p.haveWidth && p.width < 0 {
 		return 0, 0
 	}
@@ -49,76 +49,76 @@ func rectCheckSelfConsistency(s *Section, label string, p rectPoint) (applied, f
 		return 0, 0
 	}
 	if p.haveRight && p.haveLeft && p.haveWidth {
-		a, f := rectAssertEqual(s, label+": right minus left equals width", p.right-p.left, p.width)
+		a, f := rectAssertEqual(s, label+": right minus left equals width", p.right-p.left, p.width, e)
 		applied += a
 		failed += f
 	}
 	if p.haveBottom && p.haveTop && p.haveHeight {
-		a, f := rectAssertEqual(s, label+": bottom minus top equals height", p.bottom-p.top, p.height)
+		a, f := rectAssertEqual(s, label+": bottom minus top equals height", p.bottom-p.top, p.height, e)
 		applied += a
 		failed += f
 	}
 	if p.haveX && p.haveLeft && p.haveWidth {
-		a, f := rectAssertEqual(s, label+": x equals left", p.x, p.left)
+		a, f := rectAssertEqual(s, label+": x equals left", p.x, p.left, e)
 		applied += a
 		failed += f
 	}
 	if p.haveY && p.haveTop && p.haveHeight {
-		a, f := rectAssertEqual(s, label+": y equals top", p.y, p.top)
+		a, f := rectAssertEqual(s, label+": y equals top", p.y, p.top, e)
 		applied += a
 		failed += f
 	}
 	return
 }
 
-func rectCheckEqualElements(s *Section, base, twin rectPoint) (applied, failed int) {
+func rectCheckEqualElements(s *Section, base, twin rectPoint, e explanation) (applied, failed int) {
 	if base.haveWidth && twin.haveWidth {
-		a, f := rectAssertEqual(s, "two identically styled elements report equal width", base.width, twin.width)
+		a, f := rectAssertEqual(s, "two identically styled elements report equal width", base.width, twin.width, e)
 		applied += a
 		failed += f
 	}
 	if base.haveHeight && twin.haveHeight {
-		a, f := rectAssertEqual(s, "two identically styled elements report equal height", base.height, twin.height)
+		a, f := rectAssertEqual(s, "two identically styled elements report equal height", base.height, twin.height, e)
 		applied += a
 		failed += f
 	}
 	return
 }
 
-func rectCheckShift(s *Section, base, shifted, restored rectPoint, shiftPx float64) (applied, failed int) {
+func rectCheckShift(s *Section, base, shifted, restored rectPoint, shiftPx float64, e explanation) (applied, failed int) {
 	add := func(a, f int) {
 		applied += a
 		failed += f
 	}
 	if base.haveLeft && shifted.haveLeft {
-		add(rectAssertEqual(s, "translating right by an exact amount moves left by that amount", shifted.left-base.left, shiftPx))
+		add(rectAssertEqual(s, "translating right by an exact amount moves left by that amount", shifted.left-base.left, shiftPx, e))
 	}
 	if base.haveRight && shifted.haveRight {
-		add(rectAssertEqual(s, "translating right by an exact amount moves right by that amount", shifted.right-base.right, shiftPx))
+		add(rectAssertEqual(s, "translating right by an exact amount moves right by that amount", shifted.right-base.right, shiftPx, e))
 	}
 	if base.haveTop && shifted.haveTop {
-		add(rectAssertEqual(s, "a horizontal translation leaves top unchanged", shifted.top, base.top))
+		add(rectAssertEqual(s, "a horizontal translation leaves top unchanged", shifted.top, base.top, e))
 	}
 	if base.haveBottom && shifted.haveBottom {
-		add(rectAssertEqual(s, "a horizontal translation leaves bottom unchanged", shifted.bottom, base.bottom))
+		add(rectAssertEqual(s, "a horizontal translation leaves bottom unchanged", shifted.bottom, base.bottom, e))
 	}
 	if base.haveWidth && shifted.haveWidth {
-		add(rectAssertEqual(s, "a horizontal translation leaves width unchanged", shifted.width, base.width))
+		add(rectAssertEqual(s, "a horizontal translation leaves width unchanged", shifted.width, base.width, e))
 	}
 	if base.haveHeight && shifted.haveHeight {
-		add(rectAssertEqual(s, "a horizontal translation leaves height unchanged", shifted.height, base.height))
+		add(rectAssertEqual(s, "a horizontal translation leaves height unchanged", shifted.height, base.height, e))
 	}
 	if base.haveLeft && restored.haveLeft {
-		add(rectAssertEqual(s, "translating back returns left to its original value", restored.left, base.left))
+		add(rectAssertEqual(s, "translating back returns left to its original value", restored.left, base.left, e))
 	}
 	if base.haveTop && restored.haveTop {
-		add(rectAssertEqual(s, "translating back returns top to its original value", restored.top, base.top))
+		add(rectAssertEqual(s, "translating back returns top to its original value", restored.top, base.top, e))
 	}
 	if base.haveWidth && restored.haveWidth {
-		add(rectAssertEqual(s, "translating back returns width to its original value", restored.width, base.width))
+		add(rectAssertEqual(s, "translating back returns width to its original value", restored.width, base.width, e))
 	}
 	if base.haveHeight && restored.haveHeight {
-		add(rectAssertEqual(s, "translating back returns height to its original value", restored.height, base.height))
+		add(rectAssertEqual(s, "translating back returns height to its original value", restored.height, base.height, e))
 	}
 	return
 }
@@ -210,6 +210,7 @@ func sectionRects(r Request, _ Inputs, c claim) Section {
 	var t tally
 
 	textm := explainedBy(c, keyMeasureText)
+	rects := explainedBy(c, keyBoundingRect)
 
 	if v, ok := r.value("rect.identities"); ok {
 		base, haveBase := rectRead(v, "base")
@@ -231,13 +232,16 @@ func sectionRects(r Request, _ Inputs, c claim) Section {
 			if !rp.have {
 				continue
 			}
-			t.foldPlain(rectCheckSelfConsistency(&s, rp.label, rp.p))
+			a, f := rectCheckSelfConsistency(&s, rp.label, rp.p, rects)
+			t.fold(a, f, rects)
 		}
 		if haveBase && haveTwin {
-			t.foldPlain(rectCheckEqualElements(&s, base, twin))
+			a, f := rectCheckEqualElements(&s, base, twin, rects)
+			t.fold(a, f, rects)
 		}
 		if haveBase && haveShifted && haveRestored && haveShiftPx {
-			t.foldPlain(rectCheckShift(&s, base, shifted, restored, shiftPx))
+			a, f := rectCheckShift(&s, base, shifted, restored, shiftPx, rects)
+			t.fold(a, f, rects)
 		}
 	} else {
 		s.Rows = append(s.Rows, Row{Label: "rect geometry", Value: "not collected", Note: "the collector did not report a usable rect.identities probe"})

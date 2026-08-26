@@ -928,7 +928,7 @@
           ["outcome", g.outcome],
           ["outcome matches the query", g.agree, g.agree === false ? "v-flag" : ""]
         ]),
-        "The geolocation interface is called only where the query has already reported a settled state, which is the case in which calling it answers from that state rather than raising a dialog."
+        "The geolocation interface is called only where the query has already reported the permission denied, which is the one state in which the call is answered from that state alone: it raises no dialog, and it asks nothing off this machine."
       )
     );
     return out;

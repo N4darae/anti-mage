@@ -31,7 +31,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 	ah, haveAH := dim("screen.availHeight", "availHeight")
 
 	screenGetters := explainedBy(c, keyScreenWidth, keyScreenHeight, keyScreenAvailWidth, keyScreenAvailHeight)
-	mm := explainedBy(c, keyMatchMedia)
+	dpr := explainedBy(c, keyMatchMedia, keyDevicePixelRatio)
 
 	var t tally
 	if haveW && haveAW && w > 0 && aw > 0 {
@@ -67,10 +67,10 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 				s.Rows = append(s.Rows, Row{
 					Label: "device pixel ratio",
 					Value: "JavaScript and CSS report different ratios",
-					Note:  mm.annotate("these are two readings of one quantity and cannot differ"),
+					Note:  dpr.annotate("these are two readings of one quantity and cannot differ"),
 				})
 			}
-			t.fold(1, bad, mm)
+			t.fold(1, bad, dpr)
 		}
 	} else {
 		s.Rows = append(s.Rows, Row{Label: "CSS readings", Value: "not collected", Note: "the ratio could not be checked against CSS"})

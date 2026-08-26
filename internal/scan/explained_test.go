@@ -1,7 +1,10 @@
 package scan
 
 import (
+	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -11,6 +14,7 @@ var measuredNativeTargetKeys = []string{
 	"AudioBuffer.prototype.getChannelData",
 	"CanvasRenderingContext2D.prototype.measureText",
 	"Date.prototype.getTimezoneOffset",
+	"Element.prototype.getBoundingClientRect",
 	"Function.prototype.toString",
 	"HTMLCanvasElement.prototype.toDataURL",
 	"HTMLMediaElement.prototype.canPlayType",
@@ -31,6 +35,8 @@ var measuredNativeTargetKeys = []string{
 	"screen.height",
 	"screen.pixelDepth",
 	"screen.width",
+	"window.devicePixelRatio",
+	"window.getComputedStyle",
 	"window.matchMedia",
 }
 
@@ -154,6 +160,7 @@ func TestAnotherAccessorReportedModifiedDowngradesNothing(t *testing.T) {
 	others := []string{
 		"navigator.platform", "screen.width", "Function.prototype.toString",
 		"AudioBuffer.prototype.getChannelData", "window.matchMedia",
+		keyBoundingRect, keyDevicePixelRatio, keyGetComputedStyle,
 	}
 	for _, other := range others {
 		t.Run(other, func(t *testing.T) {
@@ -453,4 +460,173 @@ func rowsMentionTheExplanation(sec Section, key string) bool {
 		}
 	}
 	return false
+}
+
+func geometryRatioDisagrees() map[string]string {
+	return map[string]string{
+		"geom.screen": ok(`{"width":1536,"height":864,"availWidth":1536,"availHeight":816,"devicePixelRatio":1}`),
+		"geom.css":    ok(`{"dppx":2}`),
+	}
+}
+
+func geometryAvailableSpaceDisagrees() map[string]string {
+	return map[string]string{
+		"geom.screen": ok(`{"width":1536,"height":864,"availWidth":1600,"availHeight":816,"devicePixelRatio":1}`),
+		"geom.css":    ok(`{"dppx":1}`),
+	}
+}
+
+func geometryBothDisagree() map[string]string {
+	return map[string]string{
+		"geom.screen": ok(`{"width":1536,"height":864,"availWidth":1600,"availHeight":816,"devicePixelRatio":1}`),
+		"geom.css":    ok(`{"dppx":2}`),
+	}
+}
+
+func mediaPathsComplementDisagrees() map[string]string {
+	return map[string]string{
+		"media.complement": ok(`{"complements":[{"query":"(min-width: 1px)","matches":true,"negationMatches":true}]}`),
+	}
+}
+
+func TestEveryRequirementIsExplainedOnlyByTheAccessorsItsEvidenceArrivedThrough(t *testing.T) {
+	cases := []struct {
+		name     string
+		kv       map[string]string
+		build    sectionFunc
+		explains []string
+		refuses  []string
+	}{
+		{
+			"geometry, device pixel ratio against CSS",
+			geometryRatioDisagrees(),
+			sectionGeometry,
+			[]string{keyDevicePixelRatio, keyMatchMedia},
+			[]string{keyGetComputedStyle, keyBoundingRect, keyMeasureText, keyScreenWidth, keyScreenAvailWidth, "navigator.userAgent"},
+		},
+		{
+			"geometry, available space within the screen",
+			geometryAvailableSpaceDisagrees(),
+			sectionGeometry,
+			[]string{keyScreenWidth, keyScreenAvailWidth},
+			[]string{keyDevicePixelRatio, keyMatchMedia, keyGetComputedStyle, keyBoundingRect},
+		},
+		{
+			"rects, DOMRect identities",
+			rectIdentityDisagrees(),
+			sectionRects,
+			[]string{keyBoundingRect},
+			[]string{keyMeasureText, keyDevicePixelRatio, keyGetComputedStyle, keyMatchMedia, keyScreenWidth},
+		},
+		{
+			"rects, text metrics",
+			textMetricsWidthDisagrees(),
+			sectionRects,
+			[]string{keyMeasureText},
+			[]string{keyBoundingRect, keyDevicePixelRatio, keyGetComputedStyle, keyMatchMedia},
+		},
+		{
+			"mediapaths, matchMedia against the cascade",
+			mediaPathsColourSchemeDisagrees(),
+			sectionMediaPaths,
+			[]string{keyGetComputedStyle, keyMatchMedia},
+			[]string{keyDevicePixelRatio, keyBoundingRect, keyMeasureText},
+		},
+		{
+			"mediapaths, a query against its own negation",
+			mediaPathsComplementDisagrees(),
+			sectionMediaPaths,
+			[]string{keyMatchMedia},
+			[]string{keyGetComputedStyle, keyDevicePixelRatio, keyBoundingRect, keyMeasureText},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if plain := run(t, tc.kv, tc.build); plain.Determination != Contradiction {
+				t.Fatalf("determination = %q with no natives reading, want contradiction", plain.Determination)
+			}
+			for _, k := range tc.explains {
+				sec := run(t, with(tc.kv, nativesSaying([]string{k}, measuredNativeTargetKeys)), tc.build)
+				if sec.Determination != Instrumented {
+					t.Errorf("determination = %q with %s reported modified, want instrumented; rows: %+v", sec.Determination, k, sec.Rows)
+				}
+				if !rowsMentionTheExplanation(sec, k) {
+					t.Errorf("no row names %s as what explains the disagreement; rows: %+v", k, sec.Rows)
+				}
+			}
+			for _, k := range tc.refuses {
+				sec := run(t, with(tc.kv, nativesSaying([]string{k}, measuredNativeTargetKeys)), tc.build)
+				if sec.Determination != Contradiction {
+					t.Errorf("determination = %q with %s reported modified, want contradiction: this requirement reads nothing through it; rows: %+v", sec.Determination, k, sec.Rows)
+				}
+			}
+		})
+	}
+}
+
+func TestAnExplainedDisagreementBesideAnUnexplainedOneStillConvicts(t *testing.T) {
+	cases := []struct {
+		name     string
+		kv       map[string]string
+		build    sectionFunc
+		modified string
+	}{
+		{"geometry", geometryBothDisagree(), sectionGeometry, keyDevicePixelRatio},
+		{
+			"rects",
+			map[string]string{
+				"rect.identities": rectIdentityDisagrees()["rect.identities"],
+				"text.metrics":    textMetricsWidthDisagrees()["text.metrics"],
+			},
+			sectionRects,
+			keyBoundingRect,
+		},
+		{
+			"mediapaths",
+			with(mediaPathsColourSchemeDisagrees(), mediaPathsComplementDisagrees()),
+			sectionMediaPaths,
+			keyGetComputedStyle,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sec := run(t, with(tc.kv, nativesSaying([]string{tc.modified}, measuredNativeTargetKeys)), tc.build)
+			if sec.Determination != Contradiction {
+				t.Fatalf("determination = %q, want contradiction: the other disagreement in this payload reads nothing through %s; rows: %+v", sec.Determination, tc.modified, sec.Rows)
+			}
+			if !rowsMentionTheExplanation(sec, tc.modified) {
+				t.Errorf("the explained disagreement disappeared from the rows; rows: %+v", sec.Rows)
+			}
+		})
+	}
+}
+
+func TestTheCollectorDeclaresEveryAccessorKeyThisPackageMaps(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "web", "collect.js"))
+	if err != nil {
+		t.Fatalf("the collector source could not be read: %v", err)
+	}
+	i := bytes.Index(src, []byte("function nativeTargets("))
+	if i < 0 {
+		t.Fatal("web/collect.js declares no nativeTargets")
+	}
+	declared := string(src[i:])
+	for _, k := range mappedAccessorKeys {
+		if collectorDeclares(declared, k) {
+			continue
+		}
+		t.Errorf("nativeTargets in web/collect.js does not probe %q, which explained.go maps a requirement onto", k)
+	}
+}
+
+func collectorDeclares(declared, key string) bool {
+	if strings.Contains(declared, `key: "`+key+`"`) {
+		return true
+	}
+	cut := strings.LastIndexByte(key, '.')
+	if cut < 0 {
+		return false
+	}
+	return strings.Contains(declared, `key: "`+key[:cut+1]+`" + n`) &&
+		strings.Contains(declared, `"`+key[cut+1:]+`"`)
 }

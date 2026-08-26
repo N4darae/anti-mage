@@ -255,6 +255,23 @@ var AM = (function () {
         add({ key: "screen." + n, owner: scrProto, name: n, kind: "getter", instance: screen });
       });
     }
+    var dprDesc = attempt(function () {
+      return Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+    }, null);
+    if (dprDesc && typeof dprDesc.get === "function") {
+      add({ key: "window.devicePixelRatio", owner: window, name: "devicePixelRatio", kind: "getter", instance: window });
+    }
+    var elemProto = proto("Element");
+    if (elemProto && typeof elemProto.getBoundingClientRect === "function") {
+      add({
+        key: "Element.prototype.getBoundingClientRect",
+        owner: elemProto,
+        name: "getBoundingClientRect",
+        kind: "method",
+        instance: document.createElement("div"),
+        args: []
+      });
+    }
     add({ key: "Date.prototype.getTimezoneOffset", owner: Date.prototype, name: "getTimezoneOffset", kind: "method", instance: new Date(), args: [] });
     add({ key: "Function.prototype.toString", owner: Function.prototype, name: "toString", kind: "method", instance: function amSample() {}, args: [] });
     if (window.Intl && Intl.DateTimeFormat) {
@@ -328,6 +345,16 @@ var AM = (function () {
         kind: "method",
         instance: window,
         args: ["(min-width: 0px)"]
+      });
+    }
+    if (typeof window.getComputedStyle === "function" && document.documentElement) {
+      add({
+        key: "window.getComputedStyle",
+        owner: window,
+        name: "getComputedStyle",
+        kind: "method",
+        instance: window,
+        args: [document.documentElement]
       });
     }
     return list;
@@ -1460,14 +1487,20 @@ var AM = (function () {
                 : null,
             queryState: byName.notifications || null
           };
-          notif.agree = notif.apiValue === null || notif.queryState === null ? null : notif.apiValue === notif.queryState;
+          var equivalent = { granted: "granted", denied: "denied", prompt: "default" };
+          notif.agree =
+            notif.apiValue === null ||
+            notif.queryState === null ||
+            !Object.prototype.hasOwnProperty.call(equivalent, notif.queryState)
+              ? null
+              : equivalent[notif.queryState] === notif.apiValue;
           var pair = {};
           if (typeof notif.queryState === "string" && notif.queryState) pair.query = notif.queryState;
           if (typeof notif.apiValue === "string" && notif.apiValue) pair.actual = notif.apiValue;
 
           var geoState = byName.geolocation || null;
           var geo = { queryState: geoState, apiPresent: !!navigator.geolocation, exercised: false, outcome: null, agree: null };
-          if (!geo.apiPresent || (geoState !== "granted" && geoState !== "denied")) {
+          if (!geo.apiPresent || geoState !== "denied") {
             geo.outcome = "not exercised";
             return { states: rows, notifications: pair, notification: notif, geolocation: geo };
           }
@@ -1487,13 +1520,13 @@ var AM = (function () {
               function () {
                 clearTimeout(t);
                 geo.outcome = "position returned";
-                geo.agree = geoState === "granted";
+                geo.agree = false;
                 finish();
               },
               function (err) {
                 clearTimeout(t);
                 geo.outcome = "error code " + err.code;
-                geo.agree = err.code === 1 ? geoState === "denied" : null;
+                geo.agree = err.code === 1;
                 finish();
               },
               { timeout: 2500, maximumAge: 0 }

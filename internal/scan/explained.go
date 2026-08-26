@@ -6,6 +6,9 @@ const (
 	keyMeasureText       = "CanvasRenderingContext2D.prototype.measureText"
 	keyGetChannelData    = "AudioBuffer.prototype.getChannelData"
 	keyMatchMedia        = "window.matchMedia"
+	keyGetComputedStyle  = "window.getComputedStyle"
+	keyDevicePixelRatio  = "window.devicePixelRatio"
+	keyBoundingRect      = "Element.prototype.getBoundingClientRect"
 	keyScreenWidth       = "screen.width"
 	keyScreenHeight      = "screen.height"
 	keyScreenAvailWidth  = "screen.availWidth"
@@ -14,6 +17,7 @@ const (
 
 var mappedAccessorKeys = []string{
 	keyMeasureText, keyGetChannelData, keyMatchMedia,
+	keyGetComputedStyle, keyDevicePixelRatio, keyBoundingRect,
 	keyScreenWidth, keyScreenHeight, keyScreenAvailWidth, keyScreenAvailHeight,
 }
 
