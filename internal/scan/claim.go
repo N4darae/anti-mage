@@ -26,6 +26,8 @@ type claim struct {
 	platFamily    osFamily
 	uaDataFamily  osFamily
 	surfacesKnown int
+
+	natives nativeReading
 }
 
 func familyFromUA(ua string) osFamily {
@@ -92,6 +94,7 @@ func familyFromUAData(p string) osFamily {
 
 func readClaim(r Request) claim {
 	var c claim
+	c.natives = readNativeAccessors(r)
 	v, ok := r.value("scope.main")
 	if !ok {
 		return c

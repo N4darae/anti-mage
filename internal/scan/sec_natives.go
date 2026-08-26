@@ -8,104 +8,20 @@ import (
 	"github.com/N4darae/anti-mage/reference"
 )
 
-func sectionNatives(r Request, _ Inputs, _ claim) Section {
+func sectionNatives(_ Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
-
-	type violation struct {
-		target string
-		what   string
-	}
-	var violations []violation
-	applied := 0
-	targets := map[string]bool{}
-
-	note := func(id, what string) { violations = append(violations, violation{id, what}) }
-
-	if v, ok := r.value("native.tostring"); ok {
-		if m, ok := v.(map[string]any); ok {
-			for _, id := range keys(m) {
-				targets[id] = true
-				src, have := readToString(m[id])
-				if !have {
-					continue
-				}
-				applied++
-				verdict := classifyToString(src, propertyName(id))
-				switch verdict {
-				case toStringForeign:
-					note(id, "its serialisation is not that of a built-in function")
-				case toStringWrongName:
-					note(id, "its serialisation names a different function than the one probed")
-				}
-			}
-		}
-	}
-
-	if v, ok := r.value("native.ownkeys"); ok {
-		if m, ok := v.(map[string]any); ok {
-			for _, id := range keys(m) {
-				targets[id] = true
-				sets, isCtor, have := readOwnKeys(m[id])
-				if !have || len(sets) == 0 {
-					continue
-				}
-				applied++
-				first := sets[0]
-				for _, other := range sets[1:] {
-					if !sameSet(first, other) {
-						note(id, "three enumerators of its own keys do not agree")
-						break
-					}
-				}
-				if !isCtor && contains(first, "prototype") {
-					note(id, "it carries an own prototype property, which a built-in that is not a constructor does not have")
-				}
-			}
-		}
-	}
-
-	if v, ok := r.value("native.descriptor"); ok {
-		if m, ok := v.(map[string]any); ok {
-			for _, id := range keys(m) {
-				targets[id] = true
-				onProto, unforgeable, have := readDescriptor(m[id])
-				if !have || unforgeable {
-					continue
-				}
-				applied++
-				if !onProto {
-					note(id, "the property does not sit on the interface prototype object where the interface definition puts it")
-				}
-			}
-		}
-	}
-
-	if v, ok := r.value("native.receiver"); ok {
-		if m, ok := v.(map[string]any); ok {
-			for _, id := range keys(m) {
-				targets[id] = true
-				threw, skipped, have := readReceiver(m[id])
-				if !have || skipped {
-					continue
-				}
-				applied++
-				if !threw {
-					note(id, "called with a receiver that does not implement the interface it answered instead of throwing a TypeError")
-				}
-			}
-		}
-	}
+	n := c.natives
 
 	s.Rows = append(s.Rows, Row{
 		Label: "accessors probed",
-		Value: strconv.Itoa(len(targets)),
-		Note:  "requirements applied: " + strconv.Itoa(applied),
+		Value: strconv.Itoa(len(n.targets)),
+		Note:  "requirements applied: " + strconv.Itoa(n.applied),
 	})
-	if applied == 0 {
+	if n.applied == 0 {
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no requirement could be applied", Note: "the collector reported nothing this engine could test"})
 		return s
 	}
-	if len(violations) == 0 {
+	if len(n.violations) == 0 {
 		s.Determination = Consistent
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
@@ -114,13 +30,7 @@ func sectionNatives(r Request, _ Inputs, _ claim) Section {
 		})
 		return s
 	}
-	sort.Slice(violations, func(i, j int) bool {
-		if violations[i].target != violations[j].target {
-			return violations[i].target < violations[j].target
-		}
-		return violations[i].what < violations[j].what
-	})
-	shown := violations
+	shown := n.violations
 	if len(shown) > 8 {
 		shown = shown[:8]
 	}
@@ -130,7 +40,7 @@ func sectionNatives(r Request, _ Inputs, _ claim) Section {
 	s.Determination = Instrumented
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
-		Value: strconv.Itoa(len(violations)) + " of " + strconv.Itoa(applied) + " requirements did not hold",
+		Value: strconv.Itoa(len(n.violations)) + " of " + strconv.Itoa(n.applied) + " requirements did not hold",
 		Note:  "an accessor that claims to be a built-in is not behaving as one; something in this page's JavaScript environment has been redefined",
 	})
 	return s

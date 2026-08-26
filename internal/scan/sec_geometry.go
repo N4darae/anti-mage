@@ -7,7 +7,7 @@ import (
 
 const dprTolerance = 1e-3
 
-func sectionGeometry(r Request, _ Inputs, _ claim) Section {
+func sectionGeometry(r Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
 
 	screen, haveScreen := r.value("geom.screen")
@@ -30,20 +30,25 @@ func sectionGeometry(r Request, _ Inputs, _ claim) Section {
 	aw, haveAW := dim("screen.availWidth", "availWidth")
 	ah, haveAH := dim("screen.availHeight", "availHeight")
 
-	applied, failed := 0, 0
+	screenGetters := explainedBy(c, keyScreenWidth, keyScreenHeight, keyScreenAvailWidth, keyScreenAvailHeight)
+	mm := explainedBy(c, keyMatchMedia)
+
+	var t tally
 	if haveW && haveAW && w > 0 && aw > 0 {
-		applied++
+		bad := 0
 		if aw > w {
-			failed++
-			s.Rows = append(s.Rows, Row{Label: "available width", Value: "exceeds the screen width", Note: "the available space is defined as part of the screen"})
+			bad = 1
+			s.Rows = append(s.Rows, Row{Label: "available width", Value: "exceeds the screen width", Note: screenGetters.annotate("the available space is defined as part of the screen")})
 		}
+		t.fold(1, bad, screenGetters)
 	}
 	if haveH && haveAH && h > 0 && ah > 0 {
-		applied++
+		bad := 0
 		if ah > h {
-			failed++
-			s.Rows = append(s.Rows, Row{Label: "available height", Value: "exceeds the screen height", Note: "the available space is defined as part of the screen"})
+			bad = 1
+			s.Rows = append(s.Rows, Row{Label: "available height", Value: "exceeds the screen height", Note: screenGetters.annotate("the available space is defined as part of the screen")})
 		}
+		t.fold(1, bad, screenGetters)
 	}
 
 	jsDPR, haveJS := readDPR(screen)
@@ -56,39 +61,45 @@ func sectionGeometry(r Request, _ Inputs, _ claim) Section {
 			s.Rows = append(s.Rows, Row{Label: "ratio recovered from CSS", Value: strconv.FormatFloat(cssDPR, 'g', -1, 64), Note: "from the resolution media feature, in dppx"})
 		}
 		if haveJS && haveCSSDPR && jsDPR > 0 && cssDPR > 0 {
-			applied++
+			bad := 0
 			if math.Abs(jsDPR-cssDPR)/math.Max(jsDPR, cssDPR) > dprTolerance {
-				failed++
+				bad = 1
 				s.Rows = append(s.Rows, Row{
 					Label: "device pixel ratio",
 					Value: "JavaScript and CSS report different ratios",
-					Note:  "these are two readings of one quantity and cannot differ",
+					Note:  mm.annotate("these are two readings of one quantity and cannot differ"),
 				})
 			}
+			t.fold(1, bad, mm)
 		}
 	} else {
 		s.Rows = append(s.Rows, Row{Label: "CSS readings", Value: "not collected", Note: "the ratio could not be checked against CSS"})
 	}
 
-	if applied == 0 {
+	s.Determination = t.determination()
+	switch s.Determination {
+	case Inconclusive:
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: "too few numbers were reported"})
-		return s
-	}
-	if failed > 0 {
-		s.Determination = Contradiction
+	case Contradiction:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
-			Value: strconv.Itoa(failed) + " of " + strconv.Itoa(applied) + " requirements did not hold",
-			Note:  "the numbers this browser reports are not consistent with each other",
+			Value: strconv.Itoa(t.unexplained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
+			Note: "the numbers this browser reports are not consistent with each other." +
+				partlyExplainedNote(t.explained),
 		})
-		return s
+	case Instrumented:
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: strconv.Itoa(t.explained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
+			Note:  explainedConclusion,
+		})
+	default:
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "the JavaScript and CSS readings agree",
+			Note:  strconv.Itoa(t.applied) + " requirements applied",
+		})
 	}
-	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "the JavaScript and CSS readings agree",
-		Note:  strconv.Itoa(applied) + " requirements applied",
-	})
 	return s
 }
 
