@@ -320,6 +320,16 @@ var AM = (function () {
     if (perfProto && window.performance) {
       add({ key: "Performance.prototype.now", owner: perfProto, name: "now", kind: "method", instance: performance, args: [] });
     }
+    if (typeof window.matchMedia === "function") {
+      add({
+        key: "window.matchMedia",
+        owner: window,
+        name: "matchMedia",
+        kind: "method",
+        instance: window,
+        args: ["(min-width: 0px)"]
+      });
+    }
     return list;
   }
 
@@ -359,7 +369,7 @@ var AM = (function () {
       hasGetter: !!desc.get,
       hasSetter: !!desc.set
     };
-    if (t.instance) {
+    if (t.instance && t.instance !== t.owner) {
       d.ownOnInstance = attempt(function () {
         return !!Object.getOwnPropertyDescriptor(t.instance, t.name);
       }, null);
@@ -1493,6 +1503,1037 @@ var AM = (function () {
       }
     }
   ];
+
+  probes.push.apply(probes, (function () {
+  function amMathEncode(x) {
+    if (typeof x !== "number") return "type:" + typeof x;
+    if (Number.isNaN(x)) return "NaN";
+    if (x === Infinity) return "Infinity";
+    if (x === -Infinity) return "-Infinity";
+    if (Object.is(x, -0)) return "-0";
+    return String(x);
+  }
+
+  var exactProbe = {
+    id: "math.exact",
+    group: "math",
+    run: function () {
+      var out = {};
+      function put(key, fn) {
+        try {
+          var v = fn();
+          if (typeof v !== "number") return;
+          out[key] = amMathEncode(v);
+        } catch (e) {
+        }
+      }
+
+      put("abs.nan", function () { return Math.abs(NaN); });
+      put("abs.negZero", function () { return Math.abs(-0); });
+      put("abs.negInf", function () { return Math.abs(-Infinity); });
+      put("abs.neg", function () { return Math.abs(-7); });
+      put("abs.pos", function () { return Math.abs(7); });
+
+      put("sign.nan", function () { return Math.sign(NaN); });
+      put("sign.posZero", function () { return Math.sign(0); });
+      put("sign.negZero", function () { return Math.sign(-0); });
+      put("sign.pos", function () { return Math.sign(5); });
+      put("sign.neg", function () { return Math.sign(-5); });
+
+      put("floor.nan", function () { return Math.floor(NaN); });
+      put("floor.posInf", function () { return Math.floor(Infinity); });
+      put("floor.negInf", function () { return Math.floor(-Infinity); });
+      put("floor.negZero", function () { return Math.floor(-0); });
+      put("floor.fracNeg", function () { return Math.floor(-0.5); });
+      put("floor.fracPos", function () { return Math.floor(2.7); });
+
+      put("ceil.nan", function () { return Math.ceil(NaN); });
+      put("ceil.posInf", function () { return Math.ceil(Infinity); });
+      put("ceil.negInf", function () { return Math.ceil(-Infinity); });
+      put("ceil.posZero", function () { return Math.ceil(0); });
+      put("ceil.fracNeg", function () { return Math.ceil(-0.5); });
+      put("ceil.fracPos", function () { return Math.ceil(2.3); });
+
+      put("trunc.nan", function () { return Math.trunc(NaN); });
+      put("trunc.fracNeg", function () { return Math.trunc(-0.9); });
+      put("trunc.fracPos", function () { return Math.trunc(0.9); });
+      put("trunc.negInt", function () { return Math.trunc(-3.9); });
+
+      put("round.nan", function () { return Math.round(NaN); });
+      put("round.negZero", function () { return Math.round(-0); });
+      put("round.halfNeg", function () { return Math.round(-0.5); });
+      put("round.halfPos", function () { return Math.round(0.5); });
+      put("round.negHalfInt", function () { return Math.round(-2.5); });
+      put("round.posInf", function () { return Math.round(Infinity); });
+      put("round.negInf", function () { return Math.round(-Infinity); });
+
+      put("min.nan", function () { return Math.min(1, NaN); });
+      put("min.zero", function () { return Math.min(-0, 0); });
+      put("min.basic", function () { return Math.min(3, 1, 2); });
+      put("min.empty", function () { return Math.min(); });
+
+      put("max.nan", function () { return Math.max(1, NaN); });
+      put("max.zero", function () { return Math.max(-0, 0); });
+      put("max.basic", function () { return Math.max(3, 1, 2); });
+      put("max.empty", function () { return Math.max(); });
+
+      put("fround.nan", function () { return Math.fround(NaN); });
+      put("fround.negZero", function () { return Math.fround(-0); });
+      put("fround.overflow", function () { return Math.fround(Math.pow(2, 150)); });
+      put("fround.tieToEven", function () { return Math.fround(16777217); });
+      put("fround.exact", function () { return Math.fround(0.5); });
+
+      put("clz32.zero", function () { return Math.clz32(0); });
+      put("clz32.one", function () { return Math.clz32(1); });
+      put("clz32.negOne", function () { return Math.clz32(-1); });
+      put("clz32.nan", function () { return Math.clz32(NaN); });
+
+      put("imul.basic", function () { return Math.imul(3, 4); });
+      put("imul.overflow", function () { return Math.imul(0xffffffff, 5); });
+      put("imul.bigxbig", function () { return Math.imul(0x7fffffff, 0x7fffffff); });
+      put("imul.nan", function () { return Math.imul(NaN, 5); });
+
+      put("sqrt.nan", function () { return Math.sqrt(NaN); });
+      put("sqrt.negative", function () { return Math.sqrt(-1); });
+      put("sqrt.negZero", function () { return Math.sqrt(-0); });
+      put("sqrt.posInf", function () { return Math.sqrt(Infinity); });
+      put("sqrt.perfect", function () { return Math.sqrt(4); });
+      put("sqrt.exactFraction", function () { return Math.sqrt(6.25); });
+
+      return out;
+    }
+  };
+
+  var repeatProbe = {
+    id: "math.repeat",
+    group: "math",
+    run: function () {
+      var out = {};
+      function pair(key, fn) {
+        var a, b, gotA = true, gotB = true;
+        try { a = fn(); } catch (e) { gotA = false; }
+        try { b = fn(); } catch (e) { gotB = false; }
+        if (!gotA || !gotB) return;
+        if (typeof a !== "number" || typeof b !== "number") return;
+        out[key] = { a: amMathEncode(a), b: amMathEncode(b) };
+      }
+
+      pair("abs", function () { return Math.abs(-7); });
+      pair("sign", function () { return Math.sign(-7); });
+      pair("floor", function () { return Math.floor(2.7); });
+      pair("ceil", function () { return Math.ceil(2.3); });
+      pair("trunc", function () { return Math.trunc(-2.7); });
+      pair("round", function () { return Math.round(2.5); });
+      pair("min", function () { return Math.min(3, 1, 2); });
+      pair("max", function () { return Math.max(3, 1, 2); });
+      pair("fround", function () { return Math.fround(1.1); });
+      pair("clz32", function () { return Math.clz32(1000); });
+      pair("imul", function () { return Math.imul(123, 456); });
+      pair("sqrt", function () { return Math.sqrt(2); });
+
+      pair("sin", function () { return Math.sin(0.7); });
+      pair("cos", function () { return Math.cos(0.7); });
+      pair("tan", function () { return Math.tan(0.7); });
+      pair("exp", function () { return Math.exp(0.7); });
+      pair("log", function () { return Math.log(0.7); });
+      pair("log2", function () { return Math.log2(0.7); });
+      pair("log10", function () { return Math.log10(0.7); });
+      pair("pow", function () { return Math.pow(1.3, 2.7); });
+      pair("hypot", function () { return Math.hypot(3, 4, 5); });
+      pair("cbrt", function () { return Math.cbrt(30); });
+      pair("atan2", function () { return Math.atan2(0.3, 0.7); });
+      pair("expm1", function () { return Math.expm1(0.7); });
+      pair("log1p", function () { return Math.log1p(0.7); });
+      pair("sinh", function () { return Math.sinh(0.7); });
+      pair("cosh", function () { return Math.cosh(0.7); });
+      pair("tanh", function () { return Math.tanh(0.7); });
+      pair("asinh", function () { return Math.asinh(0.7); });
+      pair("acosh", function () { return Math.acosh(1.7); });
+      pair("atanh", function () { return Math.atanh(0.7); });
+
+      return out;
+    }
+  };
+
+    return [exactProbe, repeatProbe];
+  })());
+
+  probes.push.apply(probes, (function () {
+  "use strict";
+
+  function amThrowsCtorGlobal(name) {
+    switch (name) {
+      case "TypeError":
+        return typeof TypeError !== "undefined" ? TypeError : null;
+      case "RangeError":
+        return typeof RangeError !== "undefined" ? RangeError : null;
+      case "SyntaxError":
+        return typeof SyntaxError !== "undefined" ? SyntaxError : null;
+      case "URIError":
+        return typeof URIError !== "undefined" ? URIError : null;
+      case "DOMException":
+        return typeof DOMException !== "undefined" ? DOMException : null;
+      default:
+        return null;
+    }
+  }
+
+  function amThrowsObserveInto(rec, e, ctorName) {
+    try {
+      rec.name = e && typeof e.name === "string" ? e.name : null;
+    } catch (ignore1) {
+      rec.name = null;
+    }
+    try {
+      var ctor = e && e.constructor;
+      rec.ctor = ctor && typeof ctor.name === "string" ? ctor.name : null;
+    } catch (ignore2) {
+      rec.ctor = null;
+    }
+    var globalCtor = null;
+    try {
+      globalCtor = amThrowsCtorGlobal(ctorName);
+      rec.ctorGlobalAvailable = !!globalCtor;
+    } catch (ignore3) {
+      rec.ctorGlobalAvailable = false;
+    }
+    try {
+      rec.instanceOf = !!(globalCtor && e instanceof globalCtor);
+    } catch (ignore4) {
+      rec.instanceOf = false;
+    }
+    try {
+      rec.toStringTag = Object.prototype.toString.call(e);
+    } catch (ignore5) {
+      rec.toStringTag = null;
+    }
+    try {
+      rec.hasStack = !!e && typeof e.stack === "string";
+    } catch (ignore6) {
+      rec.hasStack = false;
+    }
+  }
+
+  function amThrowsRunMandated(c) {
+    var avail = true;
+    try {
+      avail = !!c.available();
+    } catch (ignoreAvail) {
+      avail = false;
+    }
+    if (!avail) {
+      return { available: false };
+    }
+
+    var rec = { available: true, threw: false };
+    try {
+      c.trigger();
+    } catch (e1) {
+      rec.threw = true;
+      amThrowsObserveInto(rec, e1, c.ctor);
+    }
+
+    var attempt2 = { threw: false };
+    try {
+      c.trigger();
+    } catch (e2) {
+      attempt2.threw = true;
+      amThrowsObserveInto(attempt2, e2, c.ctor);
+    }
+    rec.attempt2 = attempt2;
+    return rec;
+  }
+
+  var AM_THROWS_MANDATED_CASES = [
+    {
+      id: "atob.invalidChars",
+      ctor: "DOMException",
+      available: function () {
+        return typeof atob === "function";
+      },
+      trigger: function () {
+        atob("a");
+      }
+    },
+    {
+      id: "createElement.invalidName",
+      ctor: "DOMException",
+      available: function () {
+        return typeof document !== "undefined" && typeof document.createElement === "function";
+      },
+      trigger: function () {
+        document.createElement("");
+      }
+    },
+    {
+      id: "json.malformed",
+      ctor: "SyntaxError",
+      available: function () {
+        return typeof JSON !== "undefined" && typeof JSON.parse === "function";
+      },
+      trigger: function () {
+        JSON.parse("{");
+      }
+    },
+    {
+      id: "property.accessOnNull",
+      ctor: "TypeError",
+      available: function () {
+        return true;
+      },
+      trigger: function () {
+        var n = null;
+        return n.x;
+      }
+    },
+    {
+      id: "call.nonCallable",
+      ctor: "TypeError",
+      available: function () {
+        return true;
+      },
+      trigger: function () {
+        var notAFunction = {};
+        notAFunction();
+      }
+    },
+    {
+      id: "array.negativeLength",
+      ctor: "RangeError",
+      available: function () {
+        return true;
+      },
+      trigger: function () {
+        return new Array(-1);
+      }
+    },
+    {
+      id: "decodeURIComponent.malformed",
+      ctor: "URIError",
+      available: function () {
+        return true;
+      },
+      trigger: function () {
+        decodeURIComponent("%");
+      }
+    },
+    {
+      id: "structuredClone.function",
+      ctor: "DOMException",
+      available: function () {
+        return typeof structuredClone === "function";
+      },
+      trigger: function () {
+        structuredClone(function () {});
+      }
+    }
+  ];
+
+  var AM_THROWS_NAME_BATTERY = [
+    {
+      id: "typedArray.negativeLength",
+      trigger: function () {
+        return new Uint8Array(-1);
+      }
+    },
+    {
+      id: "map.nonIterablePrimitive",
+      trigger: function () {
+        return new Map(1);
+      }
+    },
+    {
+      id: "reflect.applyNonFunction",
+      trigger: function () {
+        return Reflect.apply({}, null, []);
+      }
+    },
+    {
+      id: "arrayBuffer.negativeLength",
+      trigger: function () {
+        return new ArrayBuffer(-1);
+      }
+    },
+    {
+      id: "weakmap.primitiveKey",
+      trigger: function () {
+        var m = new WeakMap();
+        m.set(1, 1);
+      }
+    }
+  ];
+
+  var AM_THROWS_PROBES = [
+    {
+      id: "throw.mandated",
+      group: "throw",
+      run: function () {
+        var out = {};
+        for (var i = 0; i < AM_THROWS_MANDATED_CASES.length; i++) {
+          var c = AM_THROWS_MANDATED_CASES[i];
+          out[c.id] = amThrowsRunMandated(c);
+        }
+        return out;
+      }
+    },
+    {
+      id: "throw.names",
+      group: "throw",
+      run: function () {
+        var out = {};
+        for (var i = 0; i < AM_THROWS_NAME_BATTERY.length; i++) {
+          var b = AM_THROWS_NAME_BATTERY[i];
+          var rec = { threw: false };
+          try {
+            b.trigger();
+          } catch (e) {
+            rec.threw = true;
+            try {
+              rec.name = e && typeof e.name === "string" ? e.name : null;
+            } catch (ignore) {
+              rec.name = null;
+            }
+          }
+          out[b.id] = rec;
+        }
+        return out;
+      }
+    }
+  ];
+
+    return AM_THROWS_PROBES;
+  })());
+
+  probes.push.apply(probes, (function () {
+function mediaPathSalt() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+var mediaPathHideStyle =
+  "position:absolute !important;" +
+  "left:-9999px !important; top:0 !important;" +
+  "width:0 !important; height:0 !important;" +
+  "min-width:0 !important; min-height:0 !important;" +
+  "max-width:0 !important; max-height:0 !important;" +
+  "margin:0 !important; padding:0 !important; border:0 !important;" +
+  "overflow:hidden !important; visibility:hidden !important;" +
+  "pointer-events:none !important;";
+
+var mediaPathStylesheetProbe = {
+  id: "media.stylesheet",
+  group: "media",
+  run: function () {
+    if (typeof window.matchMedia !== "function") unsupported("matchMedia is not available");
+    var host = document.head || document.documentElement;
+    if (!host) unsupported("no document to attach a stylesheet to");
+    if (typeof window.getComputedStyle !== "function") unsupported("getComputedStyle is not available");
+
+    var style = document.createElement("style");
+    style.setAttribute("data-am-probe", "media-stylesheet");
+    var inserted = [];
+    var created = [];
+
+    try {
+      var salt = mediaPathSalt();
+      var idx = 0;
+      function nextId() {
+        idx++;
+        return "am-mp-" + idx + "-" + salt;
+      }
+
+      var cssParts = [];
+      function plant(id, query, sentinel) {
+        cssParts.push("#" + id + "{--am-mp:0}");
+        if (query === null) {
+          cssParts.push("#" + id + "{--am-mp:" + sentinel + " !important}");
+        } else {
+          cssParts.push("@media " + query + "{#" + id + "{--am-mp:" + sentinel + " !important}}");
+        }
+      }
+
+      var controlId = nextId();
+      plant(controlId, null, 9);
+
+      var widthTautLowId = nextId();
+      plant(widthTautLowId, "(min-width: 0px)", 1);
+      var widthTautHighId = nextId();
+      plant(widthTautHighId, "(max-width: 100000px)", 1);
+      var heightTautLowId = nextId();
+      plant(heightTautLowId, "(min-height: 0px)", 1);
+      var heightTautHighId = nextId();
+      plant(heightTautHighId, "(max-height: 100000px)", 1);
+
+      var widthPx = [1, 320, 768, 1200, 2560, 4000];
+      var heightPx = [1, 480, 900, 1600];
+      var numericPlan = [];
+      widthPx.forEach(function (px) {
+        ["min", "max"].forEach(function (op) {
+          var id = nextId();
+          var q = "(" + op + "-width: " + px + "px)";
+          plant(id, q, 1);
+          numericPlan.push({ feature: "width", op: op, px: px, id: id, query: q });
+        });
+      });
+      heightPx.forEach(function (px) {
+        ["min", "max"].forEach(function (op) {
+          var id = nextId();
+          var q = "(" + op + "-height: " + px + "px)";
+          plant(id, q, 1);
+          numericPlan.push({ feature: "height", op: op, px: px, id: id, query: q });
+        });
+      });
+
+      var discreteFeatures = [
+        { feature: "orientation", values: ["portrait", "landscape"] },
+        { feature: "hover", values: ["hover", "none"] },
+        { feature: "pointer", values: ["fine", "coarse", "none"] },
+        { feature: "prefers-color-scheme", values: ["dark", "light"] },
+        { feature: "prefers-reduced-motion", values: ["reduce", "no-preference"] }
+      ];
+      var discretePlan = [];
+      discreteFeatures.forEach(function (f) {
+        f.values.forEach(function (val) {
+          var id = nextId();
+          var q = "(" + f.feature + ": " + val + ")";
+          plant(id, q, 1);
+          discretePlan.push({ feature: f.feature, value: val, id: id, query: q });
+        });
+      });
+
+      style.textContent = cssParts.join("\n");
+      host.appendChild(style);
+      inserted.push(style);
+
+      var allIds = [controlId, widthTautLowId, widthTautHighId, heightTautLowId, heightTautHighId]
+        .concat(
+          numericPlan.map(function (p) {
+            return p.id;
+          })
+        )
+        .concat(
+          discretePlan.map(function (p) {
+            return p.id;
+          })
+        );
+
+      var elById = {};
+      for (var i = 0; i < allIds.length; i++) {
+        var id = allIds[i];
+        var el = document.createElement("am-mp-probe");
+        el.id = id;
+        el.setAttribute("aria-hidden", "true");
+        el.style.cssText = mediaPathHideStyle;
+        host.appendChild(el);
+        created.push(el);
+        elById[id] = el;
+      }
+
+      function marker(id) {
+        return attempt(function () {
+          return window
+            .getComputedStyle(elById[id])
+            .getPropertyValue("--am-mp")
+            .replace(/^\s+|\s+$/g, "");
+        }, "");
+      }
+
+      var controlOk = marker(controlId) === "9";
+      var widthValid = controlOk && marker(widthTautLowId) === "1" && marker(widthTautHighId) === "1";
+      var heightValid = controlOk && marker(heightTautLowId) === "1" && marker(heightTautHighId) === "1";
+
+      function cssBool(id) {
+        var v = marker(id);
+        if (v === "1") return true;
+        if (v === "0") return false;
+        return null;
+      }
+
+      var numeric = numericPlan.map(function (p) {
+        return {
+          feature: p.feature,
+          op: p.op,
+          px: p.px,
+          jsMatches: attempt(
+            function () {
+              return mq(p.query);
+            },
+            null
+          ),
+          cssMatches: cssBool(p.id)
+        };
+      });
+
+      var discrete = discretePlan.map(function (p) {
+        return {
+          feature: p.feature,
+          value: p.value,
+          jsMatches: attempt(
+            function () {
+              return mq(p.query);
+            },
+            null
+          ),
+          cssMatches: cssBool(p.id)
+        };
+      });
+
+      return {
+        controlOk: controlOk,
+        widthValid: widthValid,
+        heightValid: heightValid,
+        numeric: numeric,
+        discrete: discrete
+      };
+    } finally {
+      for (var c = 0; c < created.length; c++) {
+        if (created[c].parentNode) created[c].parentNode.removeChild(created[c]);
+      }
+      for (var s = 0; s < inserted.length; s++) {
+        if (inserted[s].parentNode) inserted[s].parentNode.removeChild(inserted[s]);
+      }
+    }
+  }
+};
+
+var mediaPathComplementProbe = {
+  id: "media.complement",
+  group: "media",
+  run: function () {
+    if (typeof window.matchMedia !== "function") unsupported("matchMedia is not available");
+
+    var innerWidth = attempt(
+      function () {
+        var w = window.innerWidth;
+        return typeof w === "number" && isFinite(w) ? w : null;
+      },
+      null
+    );
+    var innerHeight = attempt(
+      function () {
+        var h = window.innerHeight;
+        return typeof h === "number" && isFinite(h) ? h : null;
+      },
+      null
+    );
+
+    var complementQueries = [
+      "(min-width: 1px)",
+      "(min-width: 100000px)",
+      "(min-height: 1px)",
+      "(min-height: 100000px)",
+      "(orientation: portrait)",
+      "(prefers-reduced-motion: reduce)"
+    ];
+    var complements = complementQueries.map(function (q) {
+      return {
+        query: q,
+        matches: attempt(
+          function () {
+            return mq(q);
+          },
+          null
+        ),
+        negationMatches: attempt(
+          function () {
+            return mq("not " + q);
+          },
+          null
+        )
+      };
+    });
+
+    function bracketFor(feature, value) {
+      if (typeof value !== "number" || !isFinite(value)) {
+        return {
+          feature: feature,
+          value: null,
+          insideBelowPx: null,
+          insideAbovePx: null,
+          minInside: null,
+          maxInside: null,
+          minOutside: null,
+          maxOutside: null
+        };
+      }
+      var inLo = Math.floor(value) - 1;
+      var inHi = Math.ceil(value) + 1;
+      var outLo = Math.floor(value) + 2;
+      var outHi = Math.ceil(value) - 2;
+      function ask(q) {
+        return attempt(function () {
+          return mq(q);
+        }, null);
+      }
+      return {
+        feature: feature,
+        value: value,
+        insideBelowPx: inLo,
+        insideAbovePx: inHi,
+        minInside: inLo >= 0 ? ask("(min-" + feature + ": " + inLo + "px)") : null,
+        maxInside: ask("(max-" + feature + ": " + inHi + "px)"),
+        minOutside: outLo >= 0 ? ask("(min-" + feature + ": " + outLo + "px)") : null,
+        maxOutside: outHi >= 0 ? ask("(max-" + feature + ": " + outHi + "px)") : null
+      };
+    }
+
+    return {
+      innerWidth: innerWidth,
+      innerHeight: innerHeight,
+      complements: complements,
+      brackets: [bracketFor("width", innerWidth), bracketFor("height", innerHeight)]
+    };
+  }
+};
+
+var mediaPathProbes = [mediaPathStylesheetProbe, mediaPathComplementProbe];
+
+    return mediaPathProbes;
+  })());
+
+  probes.push.apply(probes, (function () {
+function audioOfflineCtor() {
+  if (typeof OfflineAudioContext === "function") return OfflineAudioContext;
+  if (typeof window !== "undefined" && typeof window.webkitOfflineAudioContext === "function") {
+    return window.webkitOfflineAudioContext;
+  }
+  return null;
+}
+
+function audioCloseContext(ctx) {
+  if (!ctx || typeof ctx.close !== "function") return;
+  try {
+    var p = ctx.close();
+    if (p && typeof p.then === "function") p.then(null, function () {});
+  } catch (e) {
+  }
+}
+
+function audioBuildDeterministicGraph(ctx) {
+  var osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = 440;
+  osc.connect(ctx.destination);
+  osc.start(0);
+}
+
+function audioChannelsServed(buffer) {
+  if (!buffer || typeof buffer.getChannelData !== "function") return null;
+  var n = 0;
+  while (true) {
+    try {
+      buffer.getChannelData(n);
+    } catch (e) {
+      break;
+    }
+    n++;
+    if (n > 64) break; 
+  }
+  return n;
+}
+
+function audioCompareChannelArrays(a, b, acc) {
+  var n = Math.min(a.length, b.length);
+  for (var i = 0; i < n; i++) {
+    acc.sampleCount++;
+    var d = Math.abs(a[i] - b[i]);
+    if (d !== 0) {
+      acc.differingSampleCount++;
+      if (d > acc.maxAbsoluteDifference) acc.maxAbsoluteDifference = d;
+    }
+  }
+}
+
+function audioBufferDescription(buffer) {
+  return {
+    sampleRateHz: buffer.sampleRate,
+    numberOfChannels: buffer.numberOfChannels,
+    lengthFrames: buffer.length,
+    durationSeconds: buffer.duration
+  };
+}
+
+var AUDIO_VIEWS_SAMPLE_RATE_HZ = 8000;
+var AUDIO_VIEWS_NUM_CHANNELS = 2;
+var AUDIO_VIEWS_DURATION_SECONDS = 0.02; 
+
+var AUDIO_REPEAT_SAMPLE_RATE_HZ = 8000;
+var AUDIO_REPEAT_NUM_CHANNELS = 1;
+var AUDIO_REPEAT_DURATION_SECONDS = 0.02;
+
+var AUDIO_PROBES = [
+  {
+    id: "audio.views",
+    group: "audio",
+    run: function () {
+      var Ctor = audioOfflineCtor();
+      if (!Ctor) unsupported("OfflineAudioContext is not available");
+
+      var sampleRateHz = AUDIO_VIEWS_SAMPLE_RATE_HZ;
+      var numberOfChannels = AUDIO_VIEWS_NUM_CHANNELS;
+      var lengthFrames = Math.max(1, Math.round(sampleRateHz * AUDIO_VIEWS_DURATION_SECONDS));
+
+      var ctx;
+      try {
+        ctx = new Ctor(numberOfChannels, lengthFrames, sampleRateHz);
+        audioBuildDeterministicGraph(ctx);
+      } catch (e) {
+        unsupported("could not construct or graph the offline render: " + reasonOf(e));
+      }
+
+      var rendering;
+      try {
+        rendering = ctx.startRendering();
+      } catch (e) {
+        audioCloseContext(ctx);
+        unsupported("startRendering did not run: " + reasonOf(e));
+      }
+
+      return withTimeout(rendering, 4000, "audio.views render").then(
+        function (buffer) {
+          var served = audioChannelsServed(buffer);
+          var out = {
+            requested: { sampleRateHz: sampleRateHz, numberOfChannels: numberOfChannels, lengthFrames: lengthFrames },
+            rendered: audioBufferDescription(buffer)
+          };
+          if (served !== null) out.channelsServed = served;
+
+          var hasCopy = typeof buffer.copyFromChannel === "function";
+          out.copyFromChannelAvailable = hasCopy;
+          if (hasCopy && served !== null) {
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            var channels = Math.min(out.rendered.numberOfChannels, served);
+            var ranAny = false;
+            for (var c = 0; c < channels; c++) {
+              try {
+                var direct = buffer.getChannelData(c);
+                var dest = new Float32Array(direct.length);
+                buffer.copyFromChannel(dest, c, 0);
+                audioCompareChannelArrays(direct, dest, acc);
+                ranAny = true;
+              } catch (e) {
+              }
+            }
+            if (ranAny) {
+              out.views = {
+                compared: true,
+                agree: acc.differingSampleCount === 0,
+                sampleCount: acc.sampleCount,
+                differingSampleCount: acc.differingSampleCount,
+                maxAbsoluteDifference: acc.maxAbsoluteDifference
+              };
+            } else {
+              out.views = { compared: false };
+            }
+          }
+
+          audioCloseContext(ctx);
+          return out;
+        },
+        function (e) {
+          audioCloseContext(ctx);
+          throw e;
+        }
+      );
+    }
+  },
+  {
+    id: "audio.repeat",
+    group: "audio",
+    run: function () {
+      var Ctor = audioOfflineCtor();
+      if (!Ctor) unsupported("OfflineAudioContext is not available");
+
+      var sampleRateHz = AUDIO_REPEAT_SAMPLE_RATE_HZ;
+      var numberOfChannels = AUDIO_REPEAT_NUM_CHANNELS;
+      var lengthFrames = Math.max(1, Math.round(sampleRateHz * AUDIO_REPEAT_DURATION_SECONDS));
+
+      function renderOnce() {
+        var ctx;
+        try {
+          ctx = new Ctor(numberOfChannels, lengthFrames, sampleRateHz);
+          audioBuildDeterministicGraph(ctx);
+        } catch (e) {
+          unsupported("could not construct or graph the offline render: " + reasonOf(e));
+        }
+        var rendering;
+        try {
+          rendering = ctx.startRendering();
+        } catch (e) {
+          audioCloseContext(ctx);
+          unsupported("startRendering did not run: " + reasonOf(e));
+        }
+        return withTimeout(rendering, 4000, "audio.repeat render").then(
+          function (buffer) {
+            audioCloseContext(ctx);
+            return buffer;
+          },
+          function (e) {
+            audioCloseContext(ctx);
+            throw e;
+          }
+        );
+      }
+
+      return renderOnce().then(function (firstBuffer) {
+        var out = {
+          requested: { sampleRateHz: sampleRateHz, numberOfChannels: numberOfChannels, lengthFrames: lengthFrames },
+          rendered: audioBufferDescription(firstBuffer),
+          secondRenderCompleted: false
+        };
+        var firstChannel = attempt(
+          function () {
+            return firstBuffer.getChannelData(0);
+          },
+          null
+        );
+        if (!firstChannel) return out;
+
+        return renderOnce().then(
+          function (secondBuffer) {
+            out.secondRenderCompleted = true;
+            var secondChannel = attempt(
+              function () {
+                return secondBuffer.getChannelData(0);
+              },
+              null
+            );
+            if (!secondChannel) return out;
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            audioCompareChannelArrays(firstChannel, secondChannel, acc);
+            out.repeat = {
+              compared: true,
+              agree: acc.differingSampleCount === 0,
+              sampleCount: acc.sampleCount,
+              differingSampleCount: acc.differingSampleCount,
+              maxAbsoluteDifference: acc.maxAbsoluteDifference
+            };
+            return out;
+          },
+          function () {
+            return out;
+          }
+        );
+      });
+    }
+  }
+];
+
+    return AUDIO_PROBES;
+  })());
+
+  probes.push.apply(probes, [
+{
+  id: "rect.identities",
+  group: "rect",
+  run: function () {
+    if (!document.body || typeof document.createElement !== "function") {
+      unsupported("document.body is not available");
+    }
+    var shiftPx = 41;
+    var style =
+      "position:fixed;" +
+      "top:0px;left:0px;" +
+      "width:181px;height:97px;" +
+      "margin:0px;border:0px none;padding:0px;" +
+      "box-sizing:border-box;" +
+      "visibility:hidden;" +
+      "pointer-events:none;" +
+      "transform:none;";
+    var a = document.createElement("div");
+    var b = document.createElement("div");
+    a.setAttribute("style", style);
+    b.setAttribute("style", style);
+    function readRect(el) {
+      var r = el.getBoundingClientRect();
+      return {
+        x: r.x,
+        y: r.y,
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        width: r.width,
+        height: r.height
+      };
+    }
+    try {
+      if (typeof a.getBoundingClientRect !== "function") {
+        unsupported("getBoundingClientRect is not available");
+      }
+      document.body.appendChild(a);
+      document.body.appendChild(b);
+      var base = readRect(a);
+      var twin = readRect(b);
+      a.style.transform = "translateX(" + shiftPx + "px)";
+      var shifted = readRect(a);
+      a.style.transform = "none";
+      var restored = readRect(a);
+      return {
+        shiftPx: shiftPx,
+        base: base,
+        twin: twin,
+        shifted: shifted,
+        restored: restored
+      };
+    } finally {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      if (b.parentNode) b.parentNode.removeChild(b);
+    }
+  }
+},
+{
+  id: "text.metrics",
+  group: "text",
+  run: function () {
+    var c = document.createElement("canvas");
+    var ctx = c.getContext && c.getContext("2d");
+    if (!ctx || typeof ctx.measureText !== "function") {
+      unsupported("canvas 2d measureText is not available");
+    }
+    ctx.font = "32px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.direction = "ltr";
+
+    var probeString = "The Quick Fox";
+
+    function numOrNull(v) {
+      return typeof v === "number" && isFinite(v) ? v : null;
+    }
+    function boxOf(m) {
+      return {
+        actualBoundingBoxLeft: numOrNull(m.actualBoundingBoxLeft),
+        actualBoundingBoxRight: numOrNull(m.actualBoundingBoxRight),
+        actualBoundingBoxAscent: numOrNull(m.actualBoundingBoxAscent),
+        actualBoundingBoxDescent: numOrNull(m.actualBoundingBoxDescent),
+        fontBoundingBoxAscent: numOrNull(m.fontBoundingBoxAscent),
+        fontBoundingBoxDescent: numOrNull(m.fontBoundingBoxDescent),
+        emHeightAscent: numOrNull(m.emHeightAscent),
+        emHeightDescent: numOrNull(m.emHeightDescent),
+        hangingBaseline: numOrNull(m.hangingBaseline),
+        alphabeticBaseline: numOrNull(m.alphabeticBaseline),
+        ideographicBaseline: numOrNull(m.ideographicBaseline)
+      };
+    }
+
+    var emptyMetrics = ctx.measureText("");
+    var fullMetrics = ctx.measureText(probeString);
+    var repeatMetrics = ctx.measureText(probeString);
+
+    var prefixWidths = [];
+    for (var i = 0; i <= probeString.length; i++) {
+      prefixWidths.push(ctx.measureText(probeString.slice(0, i)).width);
+    }
+
+    return {
+      empty: { width: emptyMetrics.width, box: boxOf(emptyMetrics) },
+      full: { width: fullMetrics.width, box: boxOf(fullMetrics) },
+      repeat: { width: repeatMetrics.width },
+      prefixWidths: prefixWidths
+    };
+  }
+}
+  ]);
 
   function longOffsetFor(tz, d) {
     if (!tz) return null;
