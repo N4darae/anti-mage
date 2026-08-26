@@ -1,0 +1,8 @@
+The Anti-Mage Project
+
+Licensed under the MIT License; see LICENSE.
+
+Provenance for every reference value is carried in code, not in this file:
+each Table in internal/reference records a Source (the primary source it was
+verified against and the date) and a Verified flag, per
+internal/reference/doc.go.
