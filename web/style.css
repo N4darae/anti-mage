@@ -1,0 +1,584 @@
+/* Report page styling.
+   The palette is defined once as custom properties on :root and redefined
+   under prefers-color-scheme: dark. Colour marks a determination only, and
+   never carries meaning on its own: every mark is also a word. */
+
+:root {
+  --bg: #ffffff;
+  --bg-panel: #f6f7f9;
+  --bg-inset: #eef0f3;
+  --bg-stripe: #fafbfc;
+  --fg: #14171c;
+  --fg-muted: #5b6472;
+  --fg-faint: #8b93a1;
+  --rule: #d7dce3;
+  --rule-strong: #b9c1cc;
+  --accent: #2c4f7c;
+
+  --det-coherent: #1c6b41;
+  --det-discrepant: #8a4a08;
+  --det-instrumented: #a02722;
+  --det-insufficient: #5b6472;
+  --det-not-evaluated: #34567f;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11141a;
+    --bg-panel: #171b22;
+    --bg-inset: #1d222b;
+    --bg-stripe: #14181f;
+    --fg: #dde3ec;
+    --fg-muted: #939cab;
+    --fg-faint: #6d7684;
+    --rule: #2a3038;
+    --rule-strong: #3b434e;
+    --accent: #7fa8dd;
+
+    --det-coherent: #56c08a;
+    --det-discrepant: #d8a24a;
+    --det-instrumented: #e8776c;
+    --det-insufficient: #939cab;
+    --det-not-evaluated: #86aee2;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.5 var(--sans);
+  max-width: 100%;
+}
+
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 16px 64px;
+}
+
+/* ---- header ---- */
+
+.masthead {
+  border-bottom: 2px solid var(--rule-strong);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.masthead h1 {
+  font: 600 17px/1.2 var(--sans);
+  margin: 0 0 2px;
+  letter-spacing: 0.01em;
+}
+
+.masthead h1 .mark-name {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.masthead .sub {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1px 14px;
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.facts dt {
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.facts dd {
+  margin: 0;
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+/* ---- controls ---- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 12px 0 4px;
+}
+
+button {
+  font: 12px/1 var(--sans);
+  color: var(--fg);
+  background: var(--bg-panel);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--bg-inset);
+}
+
+button:disabled {
+  color: var(--fg-faint);
+  cursor: default;
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.status-line {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin: 6px 0 0;
+  min-height: 1.5em;
+}
+
+/* ---- summary band ---- */
+
+.band {
+  border: 1px solid var(--rule-strong);
+  border-left-width: 4px;
+  background: var(--bg-panel);
+  padding: 10px 12px;
+  margin: 14px 0 6px;
+}
+
+.band[data-det="coherent"] { border-left-color: var(--det-coherent); }
+.band[data-det="discrepant"] { border-left-color: var(--det-discrepant); }
+.band[data-det="instrumented"] { border-left-color: var(--det-instrumented); }
+.band[data-det="insufficient"] { border-left-color: var(--det-insufficient); }
+.band[data-det="not-evaluated"] { border-left-color: var(--det-not-evaluated); }
+
+.band .band-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.band .band-statement {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.band .band-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+.band .band-nums div {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+
+.band .band-nums .n-label {
+  color: var(--fg-muted);
+}
+
+.band .band-nums .n-value {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.band .band-note {
+  margin: 8px 0 0;
+  color: var(--fg-muted);
+  font-size: 12px;
+  max-width: 78ch;
+}
+
+/* ---- determination marker ---- */
+
+.det {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  white-space: nowrap;
+  color: var(--det-insufficient);
+}
+
+.det[data-det="coherent"] { color: var(--det-coherent); }
+.det[data-det="discrepant"] { color: var(--det-discrepant); }
+.det[data-det="instrumented"] { color: var(--det-instrumented); }
+.det[data-det="insufficient"] { color: var(--det-insufficient); }
+.det[data-det="not-evaluated"] { color: var(--det-not-evaluated); }
+
+.word {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 0 3px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+}
+
+/* ---- section index ---- */
+
+.index {
+  border: 1px solid var(--rule);
+  margin: 14px 0;
+}
+
+.index h2 {
+  font: 600 12px/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg-panel);
+}
+
+.index ol {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.index li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 2px 10px;
+}
+
+.index li a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.index li a:hover {
+  border-bottom-color: var(--fg-muted);
+}
+
+.index li .idx-count {
+  color: var(--fg-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+/* ---- sections ---- */
+
+.sec {
+  border: 1px solid var(--rule);
+  border-left-width: 3px;
+  border-left-color: var(--rule-strong);
+  margin: 10px 0;
+  background: var(--bg);
+}
+
+.sec > summary {
+  cursor: pointer;
+  padding: 7px 10px;
+  background: var(--bg-panel);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  list-style-position: inside;
+}
+
+.sec > summary h2 {
+  display: inline;
+  font: 600 13px/1.3 var(--sans);
+  margin: 0;
+}
+
+.sec > summary .sec-scale {
+  color: var(--fg-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.sec-body {
+  padding: 8px 10px 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.block {
+  margin: 0 0 14px;
+}
+
+.block:last-child {
+  margin-bottom: 0;
+}
+
+.block > h3 {
+  font: 600 11px/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0 0 5px;
+}
+
+.block > p {
+  margin: 0 0 6px;
+  color: var(--fg-muted);
+  max-width: 82ch;
+}
+
+.note {
+  color: var(--fg-muted);
+  font-size: 12px;
+  margin: 5px 0 0;
+  max-width: 82ch;
+}
+
+/* ---- tables ---- */
+
+.scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-width: 100%;
+  border: 1px solid var(--rule);
+}
+
+.scroll.tall {
+  max-height: 58vh;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-inset);
+  text-align: left;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+tbody td,
+tbody th {
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  text-align: left;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg-stripe);
+}
+
+tbody tr:last-child td,
+tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+tbody th {
+  font-weight: 400;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+td.v,
+th.v {
+  font-family: var(--mono);
+}
+
+td.num {
+  font-family: var(--mono);
+  text-align: right;
+}
+
+td.wide {
+  font-family: var(--mono);
+  word-break: break-all;
+  min-width: 22ch;
+}
+
+td.prose {
+  color: var(--fg-muted);
+  max-width: 46ch;
+}
+
+.kv {
+  width: auto;
+  min-width: min(100%, 42ch);
+}
+
+.kv tbody th {
+  width: 1%;
+  padding-right: 16px;
+}
+
+/* Values are not coloured for being true or false: colour on this page marks a
+   determination, and a measured value is not one. The one exception is a value
+   that disagrees with another reading of the same quantity, and it carries the
+   disagreement in the row's own words as well as in its colour. */
+.v-true,
+.v-false {
+  color: var(--fg);
+}
+
+.v-none {
+  color: var(--fg-faint);
+}
+
+.v-flag {
+  color: var(--det-discrepant);
+}
+
+/* ---- probe status strip ---- */
+
+.probes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  margin: 0 0 10px;
+  color: var(--fg-muted);
+}
+
+.probes span.pr {
+  white-space: nowrap;
+}
+
+.probes span.pr b {
+  font-weight: 400;
+  color: var(--fg);
+}
+
+.probes span.pr.s-unsupported b { color: var(--det-insufficient); }
+.probes span.pr.s-error b { color: var(--det-instrumented); }
+
+.absent {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+/* ---- filter ---- */
+
+.filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 5px;
+  font-size: 12px;
+}
+
+.filter input[type="text"] {
+  font: 12px var(--mono);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 4px 6px;
+  width: 22ch;
+}
+
+.filter label {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--fg-muted);
+}
+
+.filter .count {
+  font-family: var(--mono);
+  color: var(--fg-faint);
+}
+
+/* ---- payload ---- */
+
+pre.payload {
+  margin: 0;
+  padding: 8px;
+  font: 11px/1.45 var(--mono);
+  white-space: pre;
+  overflow: auto;
+  max-height: 50vh;
+  background: var(--bg-panel);
+  border: 1px solid var(--rule);
+}
+
+footer.foot {
+  margin-top: 22px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  color: var(--fg-muted);
+  font-size: 12px;
+  max-width: 82ch;
+}
+
+/* ---- print ---- */
+
+@media print {
+  :root {
+    --bg: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-inset: #ffffff;
+    --bg-stripe: #ffffff;
+    --fg: #000000;
+    --fg-muted: #333333;
+    --fg-faint: #555555;
+    --rule: #999999;
+    --rule-strong: #444444;
+  }
+
+  .toolbar,
+  .filter,
+  .index {
+    display: none;
+  }
+
+  .scroll,
+  .scroll.tall {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sec {
+    break-inside: avoid;
+  }
+
+  thead th {
+    position: static;
+  }
+}

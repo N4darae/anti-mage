@@ -8,8 +8,6 @@ import (
 
 func allOf(rel string) []string { return reference.WindowsVersionMarkerFonts[rel].Values }
 
-// The mistake this function exists to avoid: a machine with everything the
-// vendor publishes installed must not read as impossible.
 func TestFullyInstalledReachesTheNewestRelease(t *testing.T) {
 	var all []string
 	all = append(all, reference.WindowsBaseFonts.Values...)
@@ -25,8 +23,6 @@ func TestFullyInstalledReachesTheNewestRelease(t *testing.T) {
 	}
 }
 
-// One family per release is enough. Requiring the complete set is what turns an
-// unreliable probe into a false accusation.
 func TestOneFamilyPerReleaseIsEnough(t *testing.T) {
 	obs := []string{reference.WindowsBaseFonts.Values[0]}
 	for _, rel := range releaseOrder {
@@ -38,7 +34,6 @@ func TestOneFamilyPerReleaseIsEnough(t *testing.T) {
 	}
 }
 
-// A gap is reported and never narrows, and never becomes a verdict of its own.
 func TestGapIsReportedAndDoesNotNarrow(t *testing.T) {
 	newest := releaseOrder[len(releaseOrder)-1]
 	obs := append([]string{reference.WindowsBaseFonts.Values[0]}, allOf(newest)...)
@@ -51,8 +46,6 @@ func TestGapIsReportedAndDoesNotNarrow(t *testing.T) {
 	}
 }
 
-// Nothing observed supports nothing. An empty observation is a probe that did
-// not run, not a machine with no fonts.
 func TestEmptyObservationSupportsNothing(t *testing.T) {
 	for _, obs := range [][]string{nil, {}, {"DejaVu Sans", "Liberation Sans"}} {
 		f := ReleaseFloor(obs)
@@ -62,8 +55,6 @@ func TestEmptyObservationSupportsNothing(t *testing.T) {
 	}
 }
 
-// Families that ship independently of the operating system are set aside and
-// reported, never counted toward a release.
 func TestNonProbativeFamiliesAreSetAside(t *testing.T) {
 	np := reference.WindowsNonProbativeMarkers.Values
 	f := ReleaseFloor(np)
@@ -75,8 +66,6 @@ func TestNonProbativeFamiliesAreSetAside(t *testing.T) {
 	}
 }
 
-// No input may make this function name a release as impossible: it has no way
-// to say so, and that is the point. This pins the absence of that vocabulary.
 func TestNoObservationProducesAnAccusation(t *testing.T) {
 	var every []string
 	every = append(every, reference.WindowsBaseFonts.Values...)
@@ -84,8 +73,7 @@ func TestNoObservationProducesAnAccusation(t *testing.T) {
 	for _, rel := range releaseOrder {
 		every = append(every, allOf(rel)...)
 	}
-	// Every subset of a small sample, plus the whole set, must return a Floor
-	// and never panic.
+
 	for i := range every {
 		for j := i; j < len(every) && j < i+6; j++ {
 			f := ReleaseFloor(every[i : j+1])

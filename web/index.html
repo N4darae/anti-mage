@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>anti-mage — browser environment assessment</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="style.css" />
+    <!--
+      Page bootstrap. The server replaces the contents of this element with the
+      probe inputs it chose for this scan. The collector reads this element
+      first, then a window.AM_BOOTSTRAP global, then ./api/bootstrap, then
+      ./bootstrap.json, and takes the first of those that carries input.
+
+      Keys it reads, each optional, each overriding one default and leaving the
+      rest alone:
+
+        nonce            echoed back as the "nonce" field of POST /api/scan
+        time.offsets     instants to sample, as {"date","epochMs","iso"} records
+        dates            the same instants as plain strings
+        font / fonts     {"controls","measureString","bases","families",
+                          "coverage"} for the font probes
+
+      A scan whose bootstrap carries no instants reports the offset probe as
+      unsupported, because the dates a browser is asked about are the server's
+      to choose.
+    -->
+    <script type="application/json" id="am-bootstrap">{}</script>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <h1><span class="mark-name">anti-mage</span> — browser environment assessment</h1>
+        <p class="sub">
+          Measurements taken in this browser, by the script served with this page, and read by the local server that served it.
+        </p>
+        <dl class="facts" id="facts"></dl>
+      </header>
+
+      <div class="toolbar">
+        <button type="button" id="run">Run scan</button>
+        <button type="button" id="expand">Expand all</button>
+        <button type="button" id="collapse">Collapse all</button>
+      </div>
+      <p class="status-line" id="status" role="status" aria-live="polite"></p>
+
+      <div id="band"></div>
+      <div id="index"></div>
+      <main id="sections"></main>
+      <div id="payload"></div>
+
+      <footer class="foot">
+        <p>
+          The groups below show what this browser reported, one row per measurement. They carry no verdicts of their own: the single
+          assessment at the top of the page is computed from all of them together and is the only reading here. It reaches at most
+          <span class="det" data-det="instrumented">instrumented</span>, which says an environment appears modified — of the
+          environment, not of the person using it.
+        </p>
+        <p>
+          There is no per-group verdict on this page by design. Every value in the rows was computed by this browser, so showing it
+          back reveals nothing to it; saying which group of readings moved the score would tell it which one to change.
+        </p>
+        <p>
+          A probe marked <span class="word">unsupported</span> found that the facility it needs is not present in this browser. That
+          is recorded as a gap in what could be measured, and never counts against the browser.
+        </p>
+      </footer>
+    </div>
+
+    <script src="fonts.js"></script>
+    <script src="collect.js"></script>
+    <script src="report.js"></script>
+  </body>
+</html>
