@@ -112,31 +112,61 @@ func readClaim(r Request) claim {
 	c.platFamily = familyFromPlatform(c.NavPlatform)
 	c.uaDataFamily = familyFromUAData(c.UADataPlat)
 
-	tally := map[osFamily]int{}
+	var known []osFamily
 	for _, f := range []osFamily{c.uaFamily, c.platFamily, c.uaDataFamily} {
 		if f != osUnknown {
 			c.surfacesKnown++
-			tally[f]++
+			known = append(known, f)
 		}
 	}
 	switch c.surfacesKnown {
 	case 0:
 		return c
 	case 1:
-
-		for f := range tally {
-			c.Family = f
-		}
+		c.Family = known[0]
 		return c
 	}
-	for f, n := range tally {
-		if n == c.surfacesKnown {
-			c.Family, c.Agreed = f, true
-			return c
+	for i := 0; i < len(known); i++ {
+		for j := i + 1; j < len(known); j++ {
+			if !compatibleFamilies(known[i], known[j]) {
+				return c
+			}
 		}
 	}
-
+	c.Family, c.Agreed = mostSpecificFamily(known), true
 	return c
+}
+
+func compatibleFamilies(a, b osFamily) bool {
+	if a == b {
+		return true
+	}
+	for _, p := range [][2]osFamily{{osAndroid, osLinux}, {osChrome, osLinux}, {osIOS, osMac}} {
+		if (a == p[0] && b == p[1]) || (a == p[1] && b == p[0]) {
+			return true
+		}
+	}
+	return false
+}
+
+func familySpecificity(f osFamily) int {
+	switch f {
+	case osAndroid, osChrome, osIOS:
+		return 2
+	case osWindows, osLinux, osMac:
+		return 1
+	}
+	return 0
+}
+
+func mostSpecificFamily(fs []osFamily) osFamily {
+	best := osUnknown
+	for _, f := range fs {
+		if familySpecificity(f) > familySpecificity(best) {
+			best = f
+		}
+	}
+	return best
 }
 
 func (f osFamily) String() string {
