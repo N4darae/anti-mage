@@ -189,6 +189,36 @@ abstains. A screen or viewport reported as having no size settles nothing. And a
 payload missing any of the four numbers carries no weight either way, so adding
 this reading cannot change what an older payload scores.
 
+## Capabilities against the version claimed
+
+A browser names a version, and a version implies a set of capabilities. The
+reading compares the two, in one direction only: a capability that shipped
+*later* than the version claimed, found present, is disagreeing evidence. A
+capability the claimed version should have and does not is never read as
+anything.
+
+The asymmetry is the whole design. A capability can be missing on an honest
+machine for a dozen reasons that belong to a policy, a build or a platform
+rather than to the engine's age, so absence establishes nothing. But an engine
+that answers for something introduced after the version it claims cannot be
+explained that way. That direction is also where the common failure lies: a tool
+that keeps a newer engine and rewrites the version string leaves exactly this
+trace.
+
+The table records which major version each capability shipped in, sourced to the
+vendor's release notes. Only the rows observed on a real system of that version
+are verified; the rest are read as unverified, so the reading declines to use
+them. It also declines when no version can be parsed from what the environment
+claims, when no capability was reported, and when no verified row is later than
+the version claimed -- which is the ordinary case for an environment running the
+newest release, where there is nothing later to test it against.
+
+The checks themselves live in the collector, as code rather than as expressions
+sent from here to be evaluated. The capabilities are public knowledge, so
+choosing them here would buy nothing that the page could not have prepared for
+anyway, and a collector that evaluated strings from the server would no longer
+be a collector whose behaviour can be read from its own source.
+
 ## Readings that record without scoring
 
 Two readings here reach no verdict at all, by construction, and it is worth

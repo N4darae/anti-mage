@@ -72,6 +72,7 @@ var order = []struct {
 	{"capabilities", "Reported media capabilities", sectionCapabilities},
 	{"hwdecode", "Hardware decoders against the device named", sectionHWDecode},
 	{"webgpu", "Both graphics interfaces against one device", sectionWebGPU},
+	{"engineversion", "Capabilities against the version claimed", sectionEngineVersion},
 	{"claims", "What this browser reported it could not do", sectionClaims},
 }
 
