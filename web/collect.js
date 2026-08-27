@@ -261,6 +261,55 @@ var AM = (function () {
     if (dprDesc && typeof dprDesc.get === "function") {
       add({ key: "window.devicePixelRatio", owner: window, name: "devicePixelRatio", kind: "getter", instance: window });
     }
+    var nodeProto = proto("Node");
+    var probeDiv = attempt(function () {
+      return document.createElement("div");
+    }, null);
+    if (nodeProto && probeDiv) {
+      ["nodeType", "textContent"].forEach(function (n) {
+        add({ key: "Node.prototype." + n, owner: nodeProto, name: n, kind: "getter", instance: probeDiv });
+      });
+    }
+    var elementProto = proto("Element");
+    if (elementProto && probeDiv) {
+      add({ key: "Element.prototype.tagName", owner: elementProto, name: "tagName", kind: "getter", instance: probeDiv });
+      if (typeof elementProto.getAttribute === "function") {
+        add({
+          key: "Element.prototype.getAttribute",
+          owner: elementProto,
+          name: "getAttribute",
+          kind: "method",
+          instance: probeDiv,
+          args: ["id"]
+        });
+      }
+    }
+    var targetProto = proto("EventTarget");
+    if (targetProto && probeDiv && typeof targetProto.addEventListener === "function") {
+      add({
+        key: "EventTarget.prototype.addEventListener",
+        owner: targetProto,
+        name: "addEventListener",
+        kind: "method",
+        instance: probeDiv,
+        args: ["am-probe", null]
+      });
+    }
+    var htmlProto = proto("HTMLElement");
+    if (htmlProto && probeDiv && typeof htmlProto.click === "function") {
+      add({ key: "HTMLElement.prototype.click", owner: htmlProto, name: "click", kind: "method", instance: probeDiv, args: [] });
+    }
+    var docProto = proto("Document");
+    if (docProto && typeof docProto.createElement === "function") {
+      add({
+        key: "Document.prototype.createElement",
+        owner: docProto,
+        name: "createElement",
+        kind: "method",
+        instance: document,
+        args: ["div"]
+      });
+    }
     var elemProto = proto("Element");
     if (elemProto && typeof elemProto.getBoundingClientRect === "function") {
       add({
@@ -678,6 +727,118 @@ var AM = (function () {
     });
   }
 
+  function collectNestedWorker() {
+    return new Promise(function (resolve, reject) {
+      if (typeof Worker !== "function" || typeof Blob !== "function" || !window.URL || !URL.createObjectURL) {
+        reject(Unsupported("dedicated workers or blob URLs are not available in this context"));
+        return;
+      }
+      var inner =
+        String(amFacts) +
+        ";self.onmessage=function(){try{self.postMessage({ok:true,data:amFacts('workerNested',self)});}" +
+        "catch(e){self.postMessage({ok:false,error:String(e&&e.message||e)});}};";
+      var outer =
+        "self.onmessage=function(){try{" +
+        "var u=URL.createObjectURL(new Blob([" + JSON.stringify(inner) + "],{type:'text/javascript'}));" +
+        "var w=new Worker(u);" +
+        "w.onmessage=function(ev){try{w.terminate();URL.revokeObjectURL(u);}catch(e){}self.postMessage(ev.data);};" +
+        "w.onerror=function(){try{w.terminate();URL.revokeObjectURL(u);}catch(e){}" +
+        "self.postMessage({ok:false,error:'the inner worker did not start'});};" +
+        "w.postMessage('collect');" +
+        "}catch(e){self.postMessage({ok:false,error:String(e&&e.message||e)});}};";
+      var url, w;
+      try {
+        url = URL.createObjectURL(new Blob([outer], { type: "text/javascript" }));
+        w = new Worker(url);
+      } catch (e) {
+        reject(Unsupported("the outer worker could not be created: " + reasonOf(e)));
+        return;
+      }
+      var settled = false;
+      function done(fn, arg) {
+        if (settled) return;
+        settled = true;
+        try {
+          w.terminate();
+        } catch (e) {}
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+        fn(arg);
+      }
+      w.onmessage = function (ev) {
+        if (ev.data && ev.data.ok) done(resolve, ev.data.data);
+        else done(reject, Unsupported("the nested worker reported: " + (ev.data && ev.data.error)));
+      };
+      w.onerror = function (ev) {
+        done(reject, Unsupported("the outer worker did not start: " + ((ev && ev.message) || "blocked or failed")));
+      };
+      setTimeout(function () {
+        done(reject, Unsupported("the nested worker did not answer in time"));
+      }, 4000);
+      try {
+        w.postMessage("collect");
+      } catch (e) {
+        done(reject, Unsupported("the outer worker did not accept a message: " + reasonOf(e)));
+      }
+    });
+  }
+
+  function collectFrameVariant(label, prepare) {
+    return new Promise(function (resolve, reject) {
+      var f, cleanupUrl = null;
+      try {
+        f = document.createElement("iframe");
+        f.setAttribute("title", "probe frame");
+        f.setAttribute("aria-hidden", "true");
+        f.setAttribute("tabindex", "-1");
+        f.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:0;height:0;border:0";
+        cleanupUrl = prepare(f);
+        document.body.appendChild(f);
+      } catch (e) {
+        reject(Unsupported("a frame could not be created: " + reasonOf(e)));
+        return;
+      }
+      setTimeout(function () {
+        var settledValue = null;
+        var failure = null;
+        try {
+          var g = f.contentWindow;
+          if (!g || !g.navigator) failure = Unsupported("the frame's realm was not reachable");
+          else settledValue = amFacts(label, g);
+        } catch (e) {
+          failure = Unsupported("the frame's realm could not be read: " + reasonOf(e));
+        }
+        try {
+          if (f.parentNode) f.parentNode.removeChild(f);
+        } catch (e2) {}
+        try {
+          if (cleanupUrl) URL.revokeObjectURL(cleanupUrl);
+        } catch (e3) {}
+        if (failure) reject(failure);
+        else resolve(settledValue);
+      }, 80);
+    });
+  }
+
+  function collectSrcdocIframe() {
+    return collectFrameVariant("iframeSrcdoc", function (f) {
+      f.setAttribute("srcdoc", "<!doctype html><title>probe</title>");
+      return null;
+    });
+  }
+
+  function collectBlobIframe() {
+    return collectFrameVariant("iframeBlob", function (f) {
+      if (typeof Blob !== "function" || !window.URL || !URL.createObjectURL) {
+        throw Unsupported("blob URLs are not available in this context");
+      }
+      var u = URL.createObjectURL(new Blob(["<!doctype html><title>probe</title>"], { type: "text/html" }));
+      f.setAttribute("src", u);
+      return u;
+    });
+  }
+
   function collectScopes() {
     if (scopeCache) return scopeCache;
     scopeCache = Promise.all([
@@ -701,9 +862,37 @@ var AM = (function () {
         })
         .catch(function (e) {
           return { status: e && e.amUnsupported ? "unsupported" : "error", reason: reasonOf(e) };
+        }),
+      collectNestedWorker()
+        .then(function (v) {
+          return { status: "ok", value: v };
+        })
+        .catch(function (e) {
+          return { status: e && e.amUnsupported ? "unsupported" : "error", reason: reasonOf(e) };
+        }),
+      collectSrcdocIframe()
+        .then(function (v) {
+          return { status: "ok", value: v };
+        })
+        .catch(function (e) {
+          return { status: e && e.amUnsupported ? "unsupported" : "error", reason: reasonOf(e) };
+        }),
+      collectBlobIframe()
+        .then(function (v) {
+          return { status: "ok", value: v };
+        })
+        .catch(function (e) {
+          return { status: e && e.amUnsupported ? "unsupported" : "error", reason: reasonOf(e) };
         })
     ]).then(function (r) {
-      return { main: r[0], worker: r[1], iframe: r[2] };
+      return {
+        main: r[0],
+        worker: r[1],
+        iframe: r[2],
+        workerNested: r[3],
+        iframeSrcdoc: r[4],
+        iframeBlob: r[5]
+      };
     });
     return scopeCache;
   }
@@ -1037,6 +1226,27 @@ var AM = (function () {
       }
     },
     {
+      id: "scope.workerNested",
+      group: "scope",
+      run: function () {
+        return scopeSlice("workerNested");
+      }
+    },
+    {
+      id: "scope.iframeSrcdoc",
+      group: "scope",
+      run: function () {
+        return scopeSlice("iframeSrcdoc");
+      }
+    },
+    {
+      id: "scope.iframeBlob",
+      group: "scope",
+      run: function () {
+        return scopeSlice("iframeBlob");
+      }
+    },
+    {
       id: "scope.iframe",
       group: "scope",
       run: function () {
@@ -1049,11 +1259,341 @@ var AM = (function () {
       run: function () {
         return collectScopes().then(function (all) {
           var out = {};
-          ["main", "worker", "iframe"].forEach(function (k) {
+          ["main", "worker", "iframe", "workerNested", "iframeSrcdoc", "iframeBlob"].forEach(function (k) {
             out[k] = { created: all[k].status === "ok", status: all[k].status, reason: all[k].reason || null };
           });
           return out;
         });
+      }
+    },
+    {
+      id: "gpu.renderer",
+      group: "gpu",
+      run: function () {
+        var canvas = attempt(function () {
+          return document.createElement("canvas");
+        }, null);
+        if (!canvas || typeof canvas.getContext !== "function") {
+          unsupported("this document cannot create a canvas element");
+        }
+        var gl = attempt(function () {
+          return canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        }, null);
+        if (!gl) unsupported("no WebGL rendering context was granted");
+        var info = attempt(function () {
+          return gl.getExtension("WEBGL_debug_renderer_info");
+        }, null);
+        var param = function (name) {
+          return attempt(function () {
+            var value = gl.getParameter(gl[name]);
+            return typeof value === "string" ? value : null;
+          }, null);
+        };
+        var unmasked = function (key) {
+          if (!info) return null;
+          return attempt(function () {
+            return gl.getParameter(info[key]);
+          }, null);
+        };
+        return {
+          vendor: param("VENDOR"),
+          renderer: param("RENDERER"),
+          version: param("VERSION"),
+          shadingLanguageVersion: param("SHADING_LANGUAGE_VERSION"),
+          unmaskedVendor: unmasked("UNMASKED_VENDOR_WEBGL"),
+          unmaskedRenderer: unmasked("UNMASKED_RENDERER_WEBGL"),
+          debugRendererInfo: !!info
+        };
+      }
+    },
+    {
+      id: "gpu.adapter",
+      group: "gpu",
+      run: function () {
+        var base = { present: !!(navigator.gpu && typeof navigator.gpu.requestAdapter === "function"), secureContext: !!isSecureContext, variants: {} };
+        if (!base.present) return base;
+        var requests = [
+          ["default", undefined],
+          ["highPerformance", { powerPreference: "high-performance" }],
+          ["lowPower", { powerPreference: "low-power" }],
+          ["fallback", { forceFallbackAdapter: true }]
+        ];
+        var chain = Promise.resolve();
+        requests.forEach(function (r) {
+          chain = chain.then(function () {
+            return withTimeout(Promise.resolve(navigator.gpu.requestAdapter(r[1])), 5000, "requestAdapter " + r[0])
+              .then(function (adapter) {
+                if (!adapter) {
+                  base.variants[r[0]] = { adapter: false };
+                  return;
+                }
+                var info = adapter.info || {};
+                base.variants[r[0]] = {
+                  adapter: true,
+                  vendor: typeof info.vendor === "string" ? info.vendor : null,
+                  architecture: typeof info.architecture === "string" ? info.architecture : null,
+                  device: typeof info.device === "string" ? info.device : null,
+                  maxTextureDimension2D: adapter.limits ? adapter.limits.maxTextureDimension2D : null
+                };
+              })
+              .catch(function (e) {
+                base.variants[r[0]] = { error: reasonOf(e) };
+              });
+          });
+        });
+        return chain.then(function () {
+          return base;
+        });
+      }
+    },
+    {
+      id: "webrtc.ice",
+      group: "webrtc",
+      run: function () {
+        var Ctor = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+        if (typeof Ctor !== "function") unsupported("no peer connection interface is available");
+        var pc;
+        try {
+          pc = new Ctor({ iceServers: [] });
+        } catch (e) {
+          unsupported("a peer connection could not be created: " + reasonOf(e));
+        }
+        var sawStates = [];
+        var candidateTypes = [];
+        function noteState() {
+          var st = attempt(function () {
+            return pc.iceGatheringState;
+          }, null);
+          if (st && sawStates[sawStates.length - 1] !== st) sawStates.push(st);
+        }
+        noteState();
+        var settle;
+        var finished = new Promise(function (resolve) {
+          settle = resolve;
+        });
+        pc.onicegatheringstatechange = function () {
+          noteState();
+          if (attempt(function () {
+            return pc.iceGatheringState;
+          }, null) === "complete") settle(true);
+        };
+        pc.onicecandidate = function (ev) {
+          if (!ev.candidate) {
+            noteState();
+            settle(true);
+            return;
+          }
+          var t = attempt(function () {
+            return ev.candidate.type;
+          }, null);
+          candidateTypes.push(typeof t === "string" ? t : "unknown");
+        };
+        try {
+          pc.createDataChannel("am-probe");
+        } catch (e) {}
+        var offered = Promise.resolve()
+          .then(function () {
+            return pc.createOffer();
+          })
+          .then(function (offer) {
+            return pc.setLocalDescription(offer);
+          })
+          .catch(function (e) {
+            return null;
+          });
+        return offered
+          .then(function () {
+            return withTimeout(finished, 5000, "ice gathering").then(
+              function () {
+                return false;
+              },
+              function () {
+                return true;
+              }
+            );
+          })
+          .then(function (timedOut) {
+            noteState();
+            try {
+              pc.close();
+            } catch (e) {}
+            return {
+              finalState: sawStates.length ? sawStates[sawStates.length - 1] : null,
+              timedOut: timedOut,
+              sawStates: sawStates,
+              candidateTypes: candidateTypes
+            };
+          });
+      }
+    },
+    {
+      id: "canvas.serial",
+      group: "canvas",
+      run: function () {
+        var W = 220, H = 90;
+        var canvas = attempt(function () {
+          return document.createElement("canvas");
+        }, null);
+        if (!canvas || typeof canvas.getContext !== "function") unsupported("this document cannot create a canvas element");
+        canvas.width = W;
+        canvas.height = H;
+        var ctx = attempt(function () {
+          return canvas.getContext("2d");
+        }, null);
+        if (!ctx) unsupported("no two-dimensional drawing context was granted");
+
+        var grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, "#1b3a6b");
+        grad.addColorStop(0.5, "#c8452a");
+        grad.addColorStop(1, "#e9e4d0");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+        ctx.font = "24px serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText("anti-mage 0123", 8, 40);
+        ctx.strokeStyle = "rgba(0,0,0,0.55)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(W - 30, H - 30, 20, 0, Math.PI * 1.5);
+        ctx.stroke();
+
+        function fnv1a(bytes) {
+          var h = 0x811c9dc5;
+          for (var i = 0; i < bytes.length; i++) {
+            h = h ^ bytes[i];
+            h = (h * 0x01000193) >>> 0;
+          }
+          var hex = h.toString(16);
+          while (hex.length < 8) hex = "0" + hex;
+          return hex;
+        }
+        function hashOf(buffer) {
+          return fnv1a(new Uint8Array(buffer));
+        }
+        function pixelsOf(c) {
+          return c.getContext("2d").getImageData(0, 0, W, H).data;
+        }
+        function decodeHash(src, revoke) {
+          return new Promise(function (resolve) {
+            var img = new Image();
+            img.onload = function () {
+              var out = document.createElement("canvas");
+              out.width = W;
+              out.height = H;
+              try {
+                out.getContext("2d").drawImage(img, 0, 0);
+                resolve(fnv1a(pixelsOf(out)));
+              } catch (e) {
+                resolve(null);
+              }
+              if (revoke) attempt(function () {
+                return URL.revokeObjectURL(src);
+              }, null);
+            };
+            img.onerror = function () {
+              resolve(null);
+              if (revoke) attempt(function () {
+                return URL.revokeObjectURL(src);
+              }, null);
+            };
+            img.src = src;
+          });
+        }
+
+        var out = { dataUrlAvailable: false, blobAvailable: false, rawHash: fnv1a(pixelsOf(canvas)) };
+
+        var dataUrl = attempt(function () {
+          return canvas.toDataURL("image/png");
+        }, null);
+        var dataStep = Promise.resolve();
+        if (typeof dataUrl === "string" && dataUrl.indexOf("data:image/png") === 0) {
+          out.dataUrlAvailable = true;
+          dataStep = fetch(dataUrl)
+            .then(function (r) {
+              return r.arrayBuffer();
+            })
+            .then(function (buf) {
+              out.dataUrlHash = hashOf(buf);
+              out.dataUrlLength = buf.byteLength;
+              return decodeHash(dataUrl, false);
+            })
+            .then(function (h) {
+              out.dataUrlPixelsMatchRaw = h !== null && h === out.rawHash;
+            })
+            .catch(function (e) {
+              out.dataUrlAvailable = false;
+            });
+        }
+
+        var blobStep = dataStep.then(function () {
+          if (typeof canvas.toBlob !== "function") return null;
+          return withTimeout(
+            new Promise(function (resolve) {
+              canvas.toBlob(resolve, "image/png");
+            }),
+            5000,
+            "canvas.toBlob"
+          ).catch(function (e) {
+            return null;
+          });
+        });
+
+        return blobStep
+          .then(function (blob) {
+            if (!blob || typeof blob.arrayBuffer !== "function") return null;
+            out.blobAvailable = true;
+            return blob.arrayBuffer().then(function (buf) {
+              out.blobHash = hashOf(buf);
+              out.blobLength = buf.byteLength;
+              return decodeHash(URL.createObjectURL(blob), true);
+            });
+          })
+          .then(function (h) {
+            if (out.blobAvailable) out.blobPixelsMatchRaw = h !== null && h === out.rawHash;
+            return out;
+          })
+          .catch(function (e) {
+            return out;
+          });
+      }
+    },
+    {
+      id: "engine.features",
+      group: "engine",
+      run: function () {
+        var checks = {
+          textFit: function () {
+            return CSS.supports("text-fit", "shrink");
+          },
+          bgClipBorderArea: function () {
+            return CSS.supports("background-clip", "border-area");
+          },
+          rubyOverhang: function () {
+            return CSS.supports("ruby-overhang", "auto");
+          },
+          animationEventAnimation: function () {
+            return "animation" in AnimationEvent.prototype;
+          },
+          transitionEventAnimation: function () {
+            return "animation" in TransitionEvent.prototype;
+          },
+          userMediaElement: function () {
+            return "HTMLUserMediaElement" in window;
+          },
+          softNavigations: function () {
+            return PerformanceObserver.supportedEntryTypes.indexOf("soft-navigation") >= 0;
+          }
+        };
+        var out = {};
+        var names = Object.keys(checks);
+        for (var i = 0; i < names.length; i++) {
+          var id = names[i];
+          try {
+            out[id] = Boolean(checks[id]());
+          } catch (e) {}
+        }
+        if (!Object.keys(out).length) unsupported("no capability could be evaluated in this context");
+        return out;
       }
     },
     {

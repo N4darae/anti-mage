@@ -169,6 +169,129 @@ the person using it, and it names no vendor, product or tool as the cause.
   IANA zone database is compiled in through `time/tzdata`, behind `ZONEINFO` and
   the host's own zone directories.
 
+## A viewport against its own screen
+
+The simplest reading in the project needs no reference table at all.
+
+A page is given an area to draw in, and it is told the size of the output device it
+is drawn on. Both are reported in CSS pixels, and both scale together: a display
+scaling factor that inflates the viewport inflates the reported screen with it. So
+a viewport larger than its own screen is not a matter of degree or of any vendor's
+behaviour. It is arithmetic.
+
+The reading declines wherever the arithmetic stops being decisive. A window
+positioned so that part of it hangs off the bottom of the screen is ordinary, and
+is not read as anything; only the drawing area itself is compared, never the window
+box or the work area, because a window may legitimately overlap a taskbar or extend
+past an edge. A window whose offset from the origin is negative sits on a display
+other than the one measured, whose size this reading was never given, so it
+abstains. A screen or viewport reported as having no size settles nothing. And a
+payload missing any of the four numbers carries no weight either way, so adding
+this reading cannot change what an older payload scores.
+
+## Capabilities against the version claimed
+
+A browser names a version, and a version implies a set of capabilities. The
+reading compares the two, in one direction only: a capability that shipped
+*later* than the version claimed, found present, is disagreeing evidence. A
+capability the claimed version should have and does not is never read as
+anything.
+
+The asymmetry is the whole design. A capability can be missing on an honest
+machine for a dozen reasons that belong to a policy, a build or a platform
+rather than to the engine's age, so absence establishes nothing. But an engine
+that answers for something introduced after the version it claims cannot be
+explained that way. That direction is also where the common failure lies: a tool
+that keeps a newer engine and rewrites the version string leaves exactly this
+trace.
+
+The table records which major version each capability shipped in, sourced to the
+vendor's release notes. Only the rows observed on a real system of that version
+are verified; the rest are read as unverified, so the reading declines to use
+them. It also declines when no version can be parsed from what the environment
+claims, when no capability was reported, and when no verified row is later than
+the version claimed -- which is the ordinary case for an environment running the
+newest release, where there is nothing later to test it against.
+
+The checks themselves live in the collector, as code rather than as expressions
+sent from here to be evaluated. The capabilities are public knowledge, so
+choosing them here would buy nothing that the page could not have prepared for
+anyway, and a collector that evaluated strings from the server would no longer
+be a collector whose behaviour can be read from its own source.
+
+## Readings that record without scoring
+
+Two readings here reach no verdict at all, by construction, and it is worth
+saying why they exist.
+
+A surface can be worth watching before this project knows what an honest browser
+does on it. Candidate gathering produces a state sequence and a set of candidate
+kinds; two serialisation paths for one drawing surface produce two byte streams.
+In both cases a difference has been observed between one environment and another,
+and in neither case has the range an unmodified browser produces across builds,
+drivers and configurations been established. A verdict drawn from that would be a
+guess wearing the clothes of evidence, which is what the verified flag on a
+reference table exists to prevent.
+
+So they collect, they show what they read, and they carry no weight in any
+direction. Their tests assert that: adding either of them moves neither the band
+nor the confidence, on every input shape they accept, including the inputs where
+the two environments differed. When someone establishes the honest range, the rows
+these readings have been recording are what the question gets settled against.
+
+## Two graphics interfaces, one device
+
+A machine has one graphics device, and a browser offers two interfaces onto it.
+An environment where the older interface names a hardware device by vendor and
+model, while the newer interface grants no adapter at all, is reporting two
+different machines through two windows onto the same one.
+
+This is read as a modification rather than as a false claim, and it raises the
+score by one step rather than the step a contradiction raises it by. The reason
+is that an honest machine can reach this state: a policy may disable the newer
+interface, a driver may be excluded from it, and a device may support the older
+interface's backend without supporting the newer one's. What the reading
+establishes is that something between the two interfaces has been changed, which
+is a fact about the environment and not about the person using it.
+
+The request for a software fallback is never read. A machine with real hardware
+ordinarily has no software backend to offer, so an absent fallback is an ordinary
+answer; only the three requests that ask for a device are compared. The reading
+abstains outside a secure context, where the newer interface is gated and its
+absence says nothing; when the browser does not expose it at all; when no device
+was named for it to disagree with; and when the device named draws in software,
+because an environment already rasterising on the processor is not contradicted
+by having no hardware adapter.
+
+## A device against its own decoders
+
+One reading is worth describing on its own, because it shows what the `Verified`
+flag is for.
+
+A graphics device names a generation, and a generation carries a documented set of
+hardware video decoders. So an environment that names a device, demonstrates a
+working hardware decoder for one codec, and reports no hardware decoder for
+another codec that its own generation carries, has stated three things that cannot
+all describe one machine. The control codec is what makes this a reading rather
+than a complaint about a missing feature: an environment with no hardware decoder
+at all is not being read as missing one decoder in particular, and abstains.
+
+The reading abstains in every other direction too. A payload that names no device,
+a device outside the table, a codec this build cannot decode by any path, a
+generation the table does not record as carrying the decoder, a reading the
+collector did not report — each of those carries no weight, and none of them
+lowers the proportion of readings that reached a determination, so adding this
+reading cannot change what an older payload scores.
+
+And it abstains on any generation whose table entry is not `Verified`. Documented
+capability is not the same as observed capability: hardware decoding of a codec can
+be unavailable on a real machine for reasons that belong to the driver or the
+platform rather than the device. So an entry becomes evidence only once the
+project has watched a real system of that configuration report the decoder, and
+the entry records which system that was. Today one generation meets that bar. The
+others are tabulated, sourced, and read as `Unverified` until someone observes
+them.
+
 ## Building and testing
 
 `make check` runs `gofmt`, `go vet` and `go test` across the module. `make fmt`,
