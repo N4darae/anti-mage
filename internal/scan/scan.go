@@ -60,6 +60,7 @@ var order = []struct {
 	{"numerics", "Numeric built-in behaviour", sectionMath},
 	{"throws", "Exception types against the specification", sectionThrows},
 	{"geometry", "Screen geometry against CSS", sectionGeometry},
+	{"viewport", "Viewport against the screen it claims", sectionViewport},
 	{"rects", "Layout and text metric identities", sectionRects},
 	{"mediapaths", "Agreement between the CSS and script paths", sectionMediaPaths},
 	{"time", "Time zone against measured offsets", sectionTime},

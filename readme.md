@@ -169,6 +169,26 @@ the person using it, and it names no vendor, product or tool as the cause.
   IANA zone database is compiled in through `time/tzdata`, behind `ZONEINFO` and
   the host's own zone directories.
 
+## A viewport against its own screen
+
+The simplest reading in the project needs no reference table at all.
+
+A page is given an area to draw in, and it is told the size of the output device it
+is drawn on. Both are reported in CSS pixels, and both scale together: a display
+scaling factor that inflates the viewport inflates the reported screen with it. So
+a viewport larger than its own screen is not a matter of degree or of any vendor's
+behaviour. It is arithmetic.
+
+The reading declines wherever the arithmetic stops being decisive. A window
+positioned so that part of it hangs off the bottom of the screen is ordinary, and
+is not read as anything; only the drawing area itself is compared, never the window
+box or the work area, because a window may legitimately overlap a taskbar or extend
+past an edge. A window whose offset from the origin is negative sits on a display
+other than the one measured, whose size this reading was never given, so it
+abstains. A screen or viewport reported as having no size settles nothing. And a
+payload missing any of the four numbers carries no weight either way, so adding
+this reading cannot change what an older payload scores.
+
 ## A device against its own decoders
 
 One reading is worth describing on its own, because it shows what the `Verified`
