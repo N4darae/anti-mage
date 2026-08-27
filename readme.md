@@ -189,6 +189,30 @@ abstains. A screen or viewport reported as having no size settles nothing. And a
 payload missing any of the four numbers carries no weight either way, so adding
 this reading cannot change what an older payload scores.
 
+## Two graphics interfaces, one device
+
+A machine has one graphics device, and a browser offers two interfaces onto it.
+An environment where the older interface names a hardware device by vendor and
+model, while the newer interface grants no adapter at all, is reporting two
+different machines through two windows onto the same one.
+
+This is read as a modification rather than as a false claim, and it raises the
+score by one step rather than the step a contradiction raises it by. The reason
+is that an honest machine can reach this state: a policy may disable the newer
+interface, a driver may be excluded from it, and a device may support the older
+interface's backend without supporting the newer one's. What the reading
+establishes is that something between the two interfaces has been changed, which
+is a fact about the environment and not about the person using it.
+
+The request for a software fallback is never read. A machine with real hardware
+ordinarily has no software backend to offer, so an absent fallback is an ordinary
+answer; only the three requests that ask for a device are compared. The reading
+abstains outside a secure context, where the newer interface is gated and its
+absence says nothing; when the browser does not expose it at all; when no device
+was named for it to disagree with; and when the device named draws in software,
+because an environment already rasterising on the processor is not contradicted
+by having no hardware adapter.
+
 ## A device against its own decoders
 
 One reading is worth describing on its own, because it shows what the `Verified`

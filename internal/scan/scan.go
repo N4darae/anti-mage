@@ -69,6 +69,7 @@ var order = []struct {
 	{"permissions", "Permission state coherence", sectionPermissions},
 	{"capabilities", "Reported media capabilities", sectionCapabilities},
 	{"hwdecode", "Hardware decoders against the device named", sectionHWDecode},
+	{"webgpu", "Both graphics interfaces against one device", sectionWebGPU},
 	{"claims", "What this browser reported it could not do", sectionClaims},
 }
 
