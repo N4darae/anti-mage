@@ -11,7 +11,12 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 
 	raw, ok := r.value("perm.state")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "permission state", Value: "not collected", Note: "the collector did not report it"})
+		s.Determination = Unverified
+		s.Rows = append(s.Rows, Row{
+			Label: "permission state",
+			Value: "not collected",
+			Note:  "this reading compares two interfaces reporting the same permission; a payload that names neither leaves it nothing to apply to, so it carries no weight either way",
+		})
 		return s
 	}
 
@@ -31,6 +36,15 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{Label: "Permissions.query for notifications", Value: valueOrAbsent(queried), Note: "the permission state"})
 	s.Rows = append(s.Rows, Row{Label: "Notification.permission", Value: valueOrAbsent(actual), Note: "the same permission, read through the other interface"})
 
+	if queried == "" && actual == "" {
+		s.Determination = Unverified
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "neither reading was reported",
+			Note:  "an observation was collected but named neither interface, so this reading has nothing to apply to",
+		})
+		return s
+	}
 	if queried == "" || actual == "" {
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: "nothing was compared"})
 		return s
