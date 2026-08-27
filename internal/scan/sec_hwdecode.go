@@ -14,11 +14,10 @@ const (
 var geForceRTXModel = regexp.MustCompile(`GeForce RTX ([0-9]{4})`)
 
 func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
-	s := Section{Determination: Inconclusive}
+	s := Section{Determination: Unverified}
 
 	renderer, ok := hwDecodeRenderer(r)
 	if !ok {
-		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{
 			Label: "graphics device, as reported",
 			Value: "not collected",
@@ -30,14 +29,12 @@ func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
 
 	series, entry, placed := hwDecodeEntry(renderer)
 	if !placed {
-		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this project's table does not place the reported device", Note: "no decoder capability follows from a device this project has not tabulated, so this reading carries no weight for it"})
 		return s
 	}
 	s.Rows = append(s.Rows, Row{Label: "device generation", Value: entry.Family, Note: "read from the " + series + " series in this project's table"})
 
 	if !entry.Verified {
-		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the table entry for this generation has not been confirmed on a real system of that configuration",

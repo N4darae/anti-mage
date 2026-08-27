@@ -26,17 +26,17 @@ func TestPermissionsIsUnverifiedWhenTheObservationNamesNeitherInterface(t *testi
 	}
 }
 
-func TestPermissionsAbstainsWhenOnlyOneInterfaceWasReported(t *testing.T) {
+func TestPermissionsCarriesNoWeightWhenOnlyOneInterfaceWasReported(t *testing.T) {
 	got := sectionPermissions(permissionsRequest(t, `{"notifications":{"query":"prompt"}}`), Inputs{}, claim{})
-	if got.Determination != Inconclusive {
-		t.Fatalf("determination = %q, want %q: one interface reporting is not two facts to compare", got.Determination, Inconclusive)
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q: one interface reporting is not two facts to compare, so the reading has nothing to apply to", got.Determination, Unverified)
 	}
 }
 
-func TestPermissionsAbstainsOnAnUntabulatedState(t *testing.T) {
+func TestPermissionsCarriesNoWeightOnAnUntabulatedState(t *testing.T) {
 	got := sectionPermissions(permissionsRequest(t, `{"notifications":{"query":"unknown-state","actual":"default"}}`), Inputs{}, claim{})
-	if got.Determination != Inconclusive {
-		t.Fatalf("determination = %q, want %q: a state this project's table does not know must not be read as wrong", got.Determination, Inconclusive)
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q: a state this project's table cannot place carries no weight", got.Determination, Unverified)
 	}
 }
 
@@ -114,5 +114,38 @@ func TestPermissionsIsOneOfTheSectionsAnalyzeBuilds(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("the reading is not registered in the section order, so no scan runs it")
+	}
+}
+
+func TestPermissionsCarriesNoWeightOnEveryPathThatSettlesNothing(t *testing.T) {
+	bodies := map[string]string{
+		"not collected":            "",
+		"neither interface named":  `{"geolocation":{"query":"prompt"}}`,
+		"only the query reported":  `{"notifications":{"query":"prompt"}}`,
+		"only the other reported":  `{"notificationPermission":"default"}`,
+		"a state this table lacks": `{"notifications":{"query":"somethingelse","actual":"default"}}`,
+	}
+
+	settled := []Section{
+		{ID: "a", Determination: Consistent},
+		{ID: "b", Determination: Consistent},
+		{ID: "c", Determination: Inconclusive},
+	}
+	before := summarise(settled)
+
+	for name, body := range bodies {
+		r := Request{Probes: map[string]Probe{}}
+		if body != "" {
+			r.Probes["perm.state"] = Probe{Status: StatusOK, Value: []byte(body)}
+		}
+		got := sectionPermissions(r, Inputs{}, claim{})
+		if got.Determination != Unverified {
+			t.Errorf("%s: determination = %q, want %q", name, got.Determination, Unverified)
+		}
+		got.ID = "permissions"
+		after := summarise(append(settled, normalise(got)))
+		if after.Band != before.Band || after.HumanConfidence != before.HumanConfidence || after.BotLikeness != before.BotLikeness {
+			t.Errorf("%s: the summary moved from %+v to %+v", name, before, after)
+		}
 	}
 }

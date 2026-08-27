@@ -1,11 +1,10 @@
 package scan
 
 func sectionViewport(r Request, _ Inputs, _ claim) Section {
-	s := Section{Determination: Inconclusive}
+	s := Section{Determination: Unverified}
 
 	geom, ok := r.value("geom.screen")
 	if !ok {
-		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{
 			Label: "screen and viewport",
 			Value: "not collected",
@@ -23,7 +22,6 @@ func sectionViewport(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{Label: "viewport, as reported", Value: dimension(innerW, haveInnerW, innerH, haveInnerH), Note: "the size of the area this page was given to draw in"})
 
 	if !haveScreenW || !haveScreenH || !haveInnerW || !haveInnerH {
-		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the four numbers was not reported", Note: "nothing was compared, and this reading carries no weight"})
 		return s
 	}

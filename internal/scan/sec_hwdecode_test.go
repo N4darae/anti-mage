@@ -112,21 +112,21 @@ func TestHWDecodeAgreesWhenTheDecoderIsReportedAsPresent(t *testing.T) {
 	}
 }
 
-func TestHWDecodeAbstainsWhenNoHardwareDecoderWasDemonstrated(t *testing.T) {
+func TestHWDecodeCarriesNoWeightWhenNoHardwareDecoderWasDemonstrated(t *testing.T) {
 	got := sectionHWDecode(hwDecodeRequest(t, ampereRenderer, false, false, true), Inputs{}, claim{})
-	if got.Determination != Inconclusive {
-		t.Fatalf("determination = %q, want %q: without a control codec decoded in hardware, nothing was shown to be missing", got.Determination, Inconclusive)
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q: without a control codec decoded in hardware, nothing was shown to be missing", got.Determination, Unverified)
 	}
 }
 
-func TestHWDecodeAbstainsWhenTheCodecIsNotSupportedAtAll(t *testing.T) {
+func TestHWDecodeCarriesNoWeightWhenTheCodecIsNotSupportedAtAll(t *testing.T) {
 	got := sectionHWDecode(hwDecodeRequest(t, ampereRenderer, true, false, false), Inputs{}, claim{})
-	if got.Determination != Inconclusive {
-		t.Fatalf("determination = %q, want %q: a codec this build cannot decode at all is an absence", got.Determination, Inconclusive)
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q: a codec this build cannot decode at all is an absence", got.Determination, Unverified)
 	}
 }
 
-func TestHWDecodeAbstainsWhenAnAnswerIsMissing(t *testing.T) {
+func TestHWDecodeCarriesNoWeightWhenAnAnswerIsMissing(t *testing.T) {
 	cases := []struct {
 		name                    string
 		control, av1, supported any
@@ -137,19 +137,19 @@ func TestHWDecodeAbstainsWhenAnAnswerIsMissing(t *testing.T) {
 	}
 	for _, c := range cases {
 		got := sectionHWDecode(hwDecodeRequest(t, ampereRenderer, c.control, c.av1, c.supported), Inputs{}, claim{})
-		if got.Determination != Inconclusive {
-			t.Errorf("%s: determination = %q, want %q", c.name, got.Determination, Inconclusive)
+		if got.Determination != Unverified {
+			t.Errorf("%s: determination = %q, want %q", c.name, got.Determination, Unverified)
 		}
 	}
 }
 
-func TestHWDecodeAbstainsWhenTheMatrixWasNotCollected(t *testing.T) {
+func TestHWDecodeCarriesNoWeightWhenTheMatrixWasNotCollected(t *testing.T) {
 	r := Request{Probes: map[string]Probe{
 		"gpu.renderer": {Status: StatusOK, Value: []byte(`{"unmaskedRenderer":"` + ampereRenderer + `"}`)},
 	}}
 	got := sectionHWDecode(r, Inputs{}, claim{})
-	if got.Determination != Inconclusive {
-		t.Fatalf("determination = %q, want %q", got.Determination, Inconclusive)
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q", got.Determination, Unverified)
 	}
 }
 
@@ -183,5 +183,43 @@ func TestAnUnverifiedSectionDoesNotMoveTheScore(t *testing.T) {
 	}
 	if withoutReading.Band != withUnverified.Band {
 		t.Errorf("band moved from %q to %q", withoutReading.Band, withUnverified.Band)
+	}
+}
+
+func TestHWDecodeCarriesNoWeightOnEveryPathThatSettlesNothing(t *testing.T) {
+	cases := []struct {
+		name string
+		req  Request
+	}{
+		{"no renderer", hwDecodeRequest(t, "", true, false, true)},
+		{"renderer this project cannot place", hwDecodeRequest(t, "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)", true, false, true)},
+		{"generation not observed on real hardware", hwDecodeRequest(t, adaRenderer, true, false, true)},
+		{"no control answer", hwDecodeRequest(t, ampereRenderer, nil, false, true)},
+		{"no codec answer", hwDecodeRequest(t, ampereRenderer, true, nil, true)},
+		{"no support answer", hwDecodeRequest(t, ampereRenderer, true, false, nil)},
+		{"no hardware decoder demonstrated", hwDecodeRequest(t, ampereRenderer, false, false, true)},
+		{"codec this build cannot decode at all", hwDecodeRequest(t, ampereRenderer, true, false, false)},
+		{"matrix not collected", Request{Probes: map[string]Probe{
+			"gpu.renderer": {Status: StatusOK, Value: []byte(`{"unmaskedRenderer":"` + ampereRenderer + `"}`)},
+		}}},
+	}
+
+	settled := []Section{
+		{ID: "a", Determination: Consistent},
+		{ID: "b", Determination: Consistent},
+		{ID: "c", Determination: Inconclusive},
+	}
+	before := summarise(settled)
+
+	for _, c := range cases {
+		got := sectionHWDecode(c.req, Inputs{}, claim{})
+		if got.Determination != Unverified {
+			t.Errorf("%s: determination = %q, want %q", c.name, got.Determination, Unverified)
+		}
+		got.ID = "hwdecode"
+		after := summarise(append(settled, normalise(got)))
+		if after.Band != before.Band || after.HumanConfidence != before.HumanConfidence || after.BotLikeness != before.BotLikeness {
+			t.Errorf("%s: the summary moved from %+v to %+v", c.name, before, after)
+		}
 	}
 }

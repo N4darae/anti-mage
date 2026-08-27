@@ -46,15 +46,17 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		return s
 	}
 	if queried == "" || actual == "" {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: "nothing was compared"})
+		s.Determination = Unverified
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: "a comparison needs both, so this reading has nothing to apply to"})
 		return s
 	}
 	want, known := notificationEquivalent[queried]
 	if !known {
+		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the reported state is not one this project's table knows",
-			Note:  "treated as unknown, not as wrong",
+			Note:  "a state this project cannot place carries no weight, in either direction",
 		})
 		return s
 	}

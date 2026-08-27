@@ -84,14 +84,14 @@ func TestViewportAcceptsAWindowHangingOffTheBottomOfItsScreen(t *testing.T) {
 	}
 }
 
-func TestViewportAbstainsWhenTheWindowSitsLeftOfOrAboveTheOrigin(t *testing.T) {
+func TestViewportCarriesNoWeightWhenTheWindowSitsLeftOfOrAboveTheOrigin(t *testing.T) {
 	for _, n := range []viewportNumbers{
 		{screenW: 1920, screenH: 768, innerW: 928, innerH: 794, screenY: -200},
 		{screenW: 800, screenH: 1080, innerW: 928, innerH: 794, screenX: -300},
 	} {
 		got := sectionViewport(viewportRequest(t, n), Inputs{}, claim{})
-		if got.Determination != Inconclusive {
-			t.Errorf("%+v: determination = %q, want %q: a negative offset means another display, whose size this reading was not given", n, got.Determination, Inconclusive)
+		if got.Determination != Unverified {
+			t.Errorf("%+v: determination = %q, want %q: a negative offset means another display, whose size this reading was not given, and a layout this ordinary must not cost an honest browser anything", n, got.Determination, Unverified)
 		}
 	}
 }
@@ -114,12 +114,44 @@ func TestViewportCarriesNoWeightWhenAnyNumberIsMissing(t *testing.T) {
 	}
 }
 
-func TestViewportAbstainsOnAScreenOfNoSize(t *testing.T) {
+func TestViewportCarriesNoWeightOnAScreenOfNoSize(t *testing.T) {
 	n := viewportFits
 	n.screenW, n.screenH = 0, 0
 	got := sectionViewport(viewportRequest(t, n), Inputs{}, claim{})
-	if got.Determination == Contradiction {
-		t.Fatal("a screen reported as having no size settles nothing")
+	if got.Determination != Unverified {
+		t.Fatalf("determination = %q, want %q: a screen reported as having no size settles nothing", got.Determination, Unverified)
+	}
+}
+
+func TestViewportCarriesNoWeightOnEveryPathThatSettlesNothing(t *testing.T) {
+	cases := []struct {
+		name string
+		req  Request
+	}{
+		{"not collected", Request{Probes: map[string]Probe{}}},
+		{"a number missing", viewportRequest(t, viewportNumbers{screenW: 1920, screenH: 1080, innerW: 928, innerH: 794, omit: "height"})},
+		{"a window on a display above the origin", viewportRequest(t, viewportNumbers{screenW: 1920, screenH: 768, innerW: 928, innerH: 794, screenY: -200})},
+		{"a window on a display left of the origin", viewportRequest(t, viewportNumbers{screenW: 800, screenH: 1080, innerW: 928, innerH: 794, screenX: -300})},
+		{"a screen of no size", viewportRequest(t, viewportNumbers{screenW: 0, screenH: 0, innerW: 928, innerH: 794})},
+	}
+
+	settled := []Section{
+		{ID: "a", Determination: Consistent},
+		{ID: "b", Determination: Consistent},
+		{ID: "c", Determination: Inconclusive},
+	}
+	before := summarise(settled)
+
+	for _, c := range cases {
+		got := sectionViewport(c.req, Inputs{}, claim{})
+		if got.Determination != Unverified {
+			t.Errorf("%s: determination = %q, want %q", c.name, got.Determination, Unverified)
+		}
+		got.ID = "viewport"
+		after := summarise(append(settled, normalise(got)))
+		if after.Band != before.Band || after.HumanConfidence != before.HumanConfidence || after.BotLikeness != before.BotLikeness {
+			t.Errorf("%s: the summary moved from %+v to %+v", c.name, before, after)
+		}
 	}
 }
 
