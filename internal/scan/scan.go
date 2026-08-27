@@ -68,6 +68,7 @@ var order = []struct {
 	{"automation", "Automation residue", sectionAutomation},
 	{"permissions", "Permission state coherence", sectionPermissions},
 	{"webrtc", "ICE gathering against its own reported state", sectionWebRTC},
+	{"canvasserial", "Two serialisations of one drawing surface", sectionCanvasSerial},
 	{"capabilities", "Reported media capabilities", sectionCapabilities},
 	{"hwdecode", "Hardware decoders against the device named", sectionHWDecode},
 	{"webgpu", "Both graphics interfaces against one device", sectionWebGPU},
