@@ -261,6 +261,55 @@ var AM = (function () {
     if (dprDesc && typeof dprDesc.get === "function") {
       add({ key: "window.devicePixelRatio", owner: window, name: "devicePixelRatio", kind: "getter", instance: window });
     }
+    var nodeProto = proto("Node");
+    var probeDiv = attempt(function () {
+      return document.createElement("div");
+    }, null);
+    if (nodeProto && probeDiv) {
+      ["nodeType", "textContent"].forEach(function (n) {
+        add({ key: "Node.prototype." + n, owner: nodeProto, name: n, kind: "getter", instance: probeDiv });
+      });
+    }
+    var elementProto = proto("Element");
+    if (elementProto && probeDiv) {
+      add({ key: "Element.prototype.tagName", owner: elementProto, name: "tagName", kind: "getter", instance: probeDiv });
+      if (typeof elementProto.getAttribute === "function") {
+        add({
+          key: "Element.prototype.getAttribute",
+          owner: elementProto,
+          name: "getAttribute",
+          kind: "method",
+          instance: probeDiv,
+          args: ["id"]
+        });
+      }
+    }
+    var targetProto = proto("EventTarget");
+    if (targetProto && probeDiv && typeof targetProto.addEventListener === "function") {
+      add({
+        key: "EventTarget.prototype.addEventListener",
+        owner: targetProto,
+        name: "addEventListener",
+        kind: "method",
+        instance: probeDiv,
+        args: ["am-probe", null]
+      });
+    }
+    var htmlProto = proto("HTMLElement");
+    if (htmlProto && probeDiv && typeof htmlProto.click === "function") {
+      add({ key: "HTMLElement.prototype.click", owner: htmlProto, name: "click", kind: "method", instance: probeDiv, args: [] });
+    }
+    var docProto = proto("Document");
+    if (docProto && typeof docProto.createElement === "function") {
+      add({
+        key: "Document.prototype.createElement",
+        owner: docProto,
+        name: "createElement",
+        kind: "method",
+        instance: document,
+        args: ["div"]
+      });
+    }
     var elemProto = proto("Element");
     if (elemProto && typeof elemProto.getBoundingClientRect === "function") {
       add({
