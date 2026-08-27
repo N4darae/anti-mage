@@ -30,6 +30,9 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 		{"scope.main", "main thread"},
 		{"scope.worker", "dedicated worker"},
 		{"scope.iframe", "same-origin frame"},
+		{"scope.workerNested", "worker spawned by another worker"},
+		{"scope.iframeSrcdoc", "srcdoc frame"},
+		{"scope.iframeBlob", "frame loaded from a blob URL"},
 	}
 
 	values := map[string]any{}
