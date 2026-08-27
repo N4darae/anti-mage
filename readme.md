@@ -169,6 +169,35 @@ the person using it, and it names no vendor, product or tool as the cause.
   IANA zone database is compiled in through `time/tzdata`, behind `ZONEINFO` and
   the host's own zone directories.
 
+## A device against its own decoders
+
+One reading is worth describing on its own, because it shows what the `Verified`
+flag is for.
+
+A graphics device names a generation, and a generation carries a documented set of
+hardware video decoders. So an environment that names a device, demonstrates a
+working hardware decoder for one codec, and reports no hardware decoder for
+another codec that its own generation carries, has stated three things that cannot
+all describe one machine. The control codec is what makes this a reading rather
+than a complaint about a missing feature: an environment with no hardware decoder
+at all is not being read as missing one decoder in particular, and abstains.
+
+The reading abstains in every other direction too. A payload that names no device,
+a device outside the table, a codec this build cannot decode by any path, a
+generation the table does not record as carrying the decoder, a reading the
+collector did not report — each of those carries no weight, and none of them
+lowers the proportion of readings that reached a determination, so adding this
+reading cannot change what an older payload scores.
+
+And it abstains on any generation whose table entry is not `Verified`. Documented
+capability is not the same as observed capability: hardware decoding of a codec can
+be unavailable on a real machine for reasons that belong to the driver or the
+platform rather than the device. So an entry becomes evidence only once the
+project has watched a real system of that configuration report the decoder, and
+the entry records which system that was. Today one generation meets that bar. The
+others are tabulated, sourced, and read as `Unverified` until someone observes
+them.
+
 ## Building and testing
 
 `make check` runs `gofmt`, `go vet` and `go test` across the module. `make fmt`,

@@ -67,6 +67,7 @@ var order = []struct {
 	{"automation", "Automation residue", sectionAutomation},
 	{"permissions", "Permission state coherence", sectionPermissions},
 	{"capabilities", "Reported media capabilities", sectionCapabilities},
+	{"hwdecode", "Hardware decoders against the device named", sectionHWDecode},
 	{"claims", "What this browser reported it could not do", sectionClaims},
 }
 
