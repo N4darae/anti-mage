@@ -13,6 +13,9 @@ it.
 Requires Go 1.24 and nothing else. Zero external dependencies; the page and its
 collector are compiled in with `go:embed`.
 
+<img width="1186" height="679" alt="image" src="https://github.com/user-attachments/assets/a7a5ebf2-3843-469d-b806-5b5ca0e26fd6" />
+
+
 ## Scoring a client
 
 Two calls. The client asks for the inputs of one scan, measures itself, and
@@ -129,6 +132,8 @@ and is quantised to steps of ten, so one body of evidence cannot be separated
 from another by watching the last digit. Nothing in the assessment says which
 reading moved the number: a value that said so would be a tuning table for
 anyone shaping an environment against it.
+<img width="1152" height="832" alt="image" src="https://github.com/user-attachments/assets/524e94cf-b7db-410f-8e23-f94e38983aa4" />
+
 
 It is an estimate, and the arithmetic errs in the direction that costs an honest
 visitor least. Absence reads as inconclusive — an observation that could not be
