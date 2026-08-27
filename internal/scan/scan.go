@@ -67,6 +67,7 @@ var order = []struct {
 	{"audio", "Audio buffer coherence", sectionAudioBuf},
 	{"automation", "Automation residue", sectionAutomation},
 	{"permissions", "Permission state coherence", sectionPermissions},
+	{"webrtc", "ICE gathering against its own reported state", sectionWebRTC},
 	{"capabilities", "Reported media capabilities", sectionCapabilities},
 	{"hwdecode", "Hardware decoders against the device named", sectionHWDecode},
 	{"webgpu", "Both graphics interfaces against one device", sectionWebGPU},

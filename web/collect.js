@@ -1347,6 +1347,86 @@ var AM = (function () {
       }
     },
     {
+      id: "webrtc.ice",
+      group: "webrtc",
+      run: function () {
+        var Ctor = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+        if (typeof Ctor !== "function") unsupported("no peer connection interface is available");
+        var pc;
+        try {
+          pc = new Ctor({ iceServers: [] });
+        } catch (e) {
+          unsupported("a peer connection could not be created: " + reasonOf(e));
+        }
+        var sawStates = [];
+        var candidateTypes = [];
+        function noteState() {
+          var st = attempt(function () {
+            return pc.iceGatheringState;
+          }, null);
+          if (st && sawStates[sawStates.length - 1] !== st) sawStates.push(st);
+        }
+        noteState();
+        var settle;
+        var finished = new Promise(function (resolve) {
+          settle = resolve;
+        });
+        pc.onicegatheringstatechange = function () {
+          noteState();
+          if (attempt(function () {
+            return pc.iceGatheringState;
+          }, null) === "complete") settle(true);
+        };
+        pc.onicecandidate = function (ev) {
+          if (!ev.candidate) {
+            noteState();
+            settle(true);
+            return;
+          }
+          var t = attempt(function () {
+            return ev.candidate.type;
+          }, null);
+          candidateTypes.push(typeof t === "string" ? t : "unknown");
+        };
+        try {
+          pc.createDataChannel("am-probe");
+        } catch (e) {}
+        var offered = Promise.resolve()
+          .then(function () {
+            return pc.createOffer();
+          })
+          .then(function (offer) {
+            return pc.setLocalDescription(offer);
+          })
+          .catch(function (e) {
+            return null;
+          });
+        return offered
+          .then(function () {
+            return withTimeout(finished, 5000, "ice gathering").then(
+              function () {
+                return false;
+              },
+              function () {
+                return true;
+              }
+            );
+          })
+          .then(function (timedOut) {
+            noteState();
+            try {
+              pc.close();
+            } catch (e) {}
+            return {
+              finalState: sawStates.length ? sawStates[sawStates.length - 1] : null,
+              timedOut: timedOut,
+              sawStates: sawStates,
+              candidateTypes: candidateTypes
+            };
+          });
+      }
+    },
+    {
       id: "geom.screen",
       group: "geom",
       run: function () {

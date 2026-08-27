@@ -189,6 +189,26 @@ abstains. A screen or viewport reported as having no size settles nothing. And a
 payload missing any of the four numbers carries no weight either way, so adding
 this reading cannot change what an older payload scores.
 
+## Readings that record without scoring
+
+Two readings here reach no verdict at all, by construction, and it is worth
+saying why they exist.
+
+A surface can be worth watching before this project knows what an honest browser
+does on it. Candidate gathering produces a state sequence and a set of candidate
+kinds; two serialisation paths for one drawing surface produce two byte streams.
+In both cases a difference has been observed between one environment and another,
+and in neither case has the range an unmodified browser produces across builds,
+drivers and configurations been established. A verdict drawn from that would be a
+guess wearing the clothes of evidence, which is what the verified flag on a
+reference table exists to prevent.
+
+So they collect, they show what they read, and they carry no weight in any
+direction. Their tests assert that: adding either of them moves neither the band
+nor the confidence, on every input shape they accept, including the inputs where
+the two environments differed. When someone establishes the honest range, the rows
+these readings have been recording are what the question gets settled against.
+
 ## Two graphics interfaces, one device
 
 A machine has one graphics device, and a browser offers two interfaces onto it.
