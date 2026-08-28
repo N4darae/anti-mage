@@ -1,9 +1,11 @@
 /* Report page styling.
-   The palette is defined once as custom properties on :root and redefined
-   under prefers-color-scheme: dark. Colour marks a determination only, and
+   The palette is defined once as custom properties on :root, and the page is
+   light whatever the system asks for. Colour marks a determination only, and
    never carries meaning on its own: every mark is also a word. */
 
 :root {
+  color-scheme: light;
+
   --bg: #ffffff;
   --bg-panel: #f6f7f9;
   --bg-inset: #eef0f3;
@@ -23,27 +25,6 @@
 
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11141a;
-    --bg-panel: #171b22;
-    --bg-inset: #1d222b;
-    --bg-stripe: #14181f;
-    --fg: #dde3ec;
-    --fg-muted: #939cab;
-    --fg-faint: #6d7684;
-    --rule: #2a3038;
-    --rule-strong: #3b434e;
-    --accent: #7fa8dd;
-
-    --det-coherent: #56c08a;
-    --det-discrepant: #d8a24a;
-    --det-instrumented: #e8776c;
-    --det-insufficient: #939cab;
-    --det-not-evaluated: #86aee2;
-  }
 }
 
 * {
