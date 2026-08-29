@@ -2,6 +2,15 @@ package scan
 
 import "strconv"
 
+func stackTraceLimitStripped(raw any) (stripped, known bool) {
+	kind, haveKind := str(raw, "captureStackTraceType")
+	if !haveKind || kind != "function" {
+		return false, false
+	}
+	_, isNumber := num(raw, "stackTraceLimit")
+	return !isNumber, true
+}
+
 func sectionAutomation(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Inconclusive}
 
@@ -41,12 +50,23 @@ func sectionAutomation(r Request, _ Inputs, _ claim) Section {
 		})
 	}
 
-	if !haveFlag && !haveNames {
+	stripped, haveLimit := stackTraceLimitStripped(raw)
+	if haveLimit {
+		v := "present"
+		note := "the engine that defines Error.captureStackTrace defines this alongside it, and it is here"
+		if stripped {
+			v = "removed"
+			note = "this engine defines Error.captureStackTrace, and every engine that defines it also defines Error.stackTraceLimit as a number; here it is gone, which takes deleting it"
+		}
+		s.Rows = append(s.Rows, Row{Label: "Error.stackTraceLimit", Value: v, Note: note})
+	}
+
+	if !haveFlag && !haveNames && !haveLimit {
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing to read", Note: "no observation was reported"})
 		return s
 	}
 	if (haveFlag && flag) || len(names) > 0 {
-		s.Determination = Instrumented
+		s.Determination, s.weight = Instrumented, weightOnlyDeliberate
 		what := "the browser declares itself under remote control"
 		if len(names) > 0 {
 			what = "a global name that only a remote-control tool defines is present"
@@ -55,6 +75,15 @@ func sectionAutomation(r Request, _ Inputs, _ claim) Section {
 			}
 		}
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this environment is being driven", Note: what})
+		return s
+	}
+	if stripped {
+		s.Determination, s.weight = Instrumented, weightOnlyDeliberate
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "a member of the engine's own stack-trace interface has been removed",
+			Note:  "no browser ships without it, and nothing but script running in this environment can take it away, so this reports that the environment was modified; hiding the depth of a stack is one reason to do it",
+		})
 		return s
 	}
 	s.Determination = Consistent
