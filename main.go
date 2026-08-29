@@ -19,6 +19,7 @@ var embedded embed.FS
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8787", "loopback address to serve on")
 	webDir := flag.String("web", "", "serve the page from this directory instead of the copy compiled in")
+	dumpDir := flag.String("dump", "", "write every payload posted to this directory, for later replay")
 	flag.Parse()
 
 	os.Unsetenv("ZONEINFO")
@@ -40,7 +41,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	s := server.New(server.Options{Addr: *addr, Web: pages, Log: logger})
+	s := server.New(server.Options{Addr: *addr, Web: pages, Log: logger, DumpDir: *dumpDir})
 	if err := s.ListenAndServe(ctx); err != nil {
 		logger.Fatalf("%v", err)
 	}
