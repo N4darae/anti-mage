@@ -441,7 +441,7 @@
   function sectionNode(group) {
     var content = group.render();
     if (content === null && !(group.probes || []).length) return null;
-    var d = h("details", { class: "sec", id: "sec-" + group.id, open: "" });
+    var d = h("details", { class: "sec", id: "sec-" + group.id });
     var scale = group.scale ? group.scale() : null;
     d.appendChild(h("summary", null, h("h2", { text: group.title }), scale ? h("span", { class: "sec-scale", text: scale }) : null));
     var body = h("div", { class: "sec-body" }, probeStrip(group.probes));
@@ -537,6 +537,7 @@
     nodes.forEach(function (n) {
       host.appendChild(n);
     });
+    labelToggle();
     assessmentNode();
     renderFacts();
   }
@@ -622,22 +623,39 @@
       });
   }
 
+  function sections() {
+    return document.querySelectorAll("details.sec");
+  }
+
+  function anyClosed() {
+    var list = sections();
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].hasAttribute("open")) return true;
+    }
+    return false;
+  }
+
   function setAll(open) {
-    var list = document.querySelectorAll("details.sec");
+    var list = sections();
     for (var i = 0; i < list.length; i++) {
       if (open) list[i].setAttribute("open", "");
       else list[i].removeAttribute("open");
     }
+    labelToggle();
+  }
+
+  function labelToggle() {
+    document.getElementById("toggle").textContent = anyClosed() ? "Expand all" : "Collapse all";
   }
 
   function init() {
     document.getElementById("run").addEventListener("click", runScan);
-    document.getElementById("expand").addEventListener("click", function () {
-      setAll(true);
+    document.getElementById("toggle").addEventListener("click", function () {
+      setAll(anyClosed());
     });
-    document.getElementById("collapse").addEventListener("click", function () {
-      setAll(false);
-    });
+    document.addEventListener("toggle", function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains("sec")) labelToggle();
+    }, true);
     renderFacts();
     runScan();
   }
