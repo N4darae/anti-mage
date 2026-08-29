@@ -5,34 +5,41 @@ environment is, together with the reference data that scoring reads. A client
 asks for a score; it gets back one determination, one estimated score, and one
 sentence saying what the two mean.
 
+## Results
+
+Scores read on 100 Windows machines (A perfect score of zero for bare browsers):
+
+0 = Completely genuine, Higher = More inconsistencies
+
+| environment | score |
+| --- | --- |
+| Chrome, stock | 0 | 
+| Firefox, stock | 0 |
+| Edge, stock | 0 | 
+| Brave | 10 | 
+| CloakBrowser | 60 | 
+| AdsPower | 70 |
+| NSTBrowser | 70 |
+| Camoufox | 90 |
+
+Brave sits at 10 because it modifies the surfaces it says it modifies, which is
+the lightest thing this project records and not a claim against it.
+
 Every reference value carries its own provenance, enforced by the type system:
 a table whose values have not been observed on a real system of the
 configuration it describes cannot be read as evidence by the code that consumes
 it.
 
-Requires Go 1.24 and nothing else. Zero external dependencies; the page and its
-collector are compiled in with `go:embed`.
+
 
 <img width="1186" height="679" alt="image" src="https://github.com/user-attachments/assets/a7a5ebf2-3843-469d-b806-5b5ca0e26fd6" />
 
 
-## Results
+## Requirements
 
-Scores read on one Windows machine:
+* **Go 1.24+**
+* **Zero external dependencies** (the collector UI and reference datasets are embedded via `go:embed`).
 
-| environment | score |
-| --- | --- |
-| Chrome, stock | 0 |
-| Firefox, stock | 0 |
-| Edge, stock | 0 |
-| Brave | 10 |
-| CloakBrowser | 60 |
-| AdsPower | 70 |
-| NSTBrowser | 70 |
-| Camoufox | 90 |
-
-Brave sits at ten because it modifies the surfaces it says it modifies, which is
-the lightest thing this project records and not a claim against it.
 
 ## Scoring a client
 
