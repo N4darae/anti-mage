@@ -50,7 +50,7 @@ func sectionAudioBuf(r Request, _ Inputs, c claim) Section {
 	case Instrumented:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
-			Value: "an offline audio render disagreed with itself where a modified accessor accounts for it",
+			Value: "an offline audio render disagreed with itself where a modification this environment carries accounts for it",
 			Note:  itoa(float64(t.explained)) + " of " + itoa(float64(t.applied)) + " invariant(s) examined did not hold. " + explainedConclusion,
 		})
 	default:
@@ -156,6 +156,7 @@ func audioViewsAndArithmetic(v any, rows *[]Row, gcd explanation) (t tally) {
 			agree, haveAgree := boolean(views, "agree")
 			if haveAgree {
 				sampleCount, _ := num(views, "sampleCount")
+				viewsExplanation := gcd
 				bad := 0
 				if !agree {
 					bad = 1
@@ -167,6 +168,12 @@ func audioViewsAndArithmetic(v any, rows *[]Row, gcd explanation) (t tally) {
 						Note: gcd.annotate("of " + itoa(sampleCount) + " sample(s) compared, " + itoa(differing) +
 							" differed; largest absolute difference " + itoa(maxDiff)),
 					})
+					if scaled, row, reported := audioUniformScale(views); reported {
+						*rows = append(*rows, row)
+						if scaled.downgrades() {
+							viewsExplanation = scaled
+						}
+					}
 				} else {
 					*rows = append(*rows, Row{
 						Label: "copyFromChannel against getChannelData",
@@ -174,7 +181,7 @@ func audioViewsAndArithmetic(v any, rows *[]Row, gcd explanation) (t tally) {
 						Note:  itoa(sampleCount) + " sample(s) compared, byte for byte",
 					})
 				}
-				t.fold(1, bad, gcd)
+				t.fold(1, bad, viewsExplanation)
 			} else {
 				*rows = append(*rows, Row{Label: "copyFromChannel against getChannelData", Value: "not compared", Note: "the comparison result did not parse"})
 			}
@@ -227,3 +234,72 @@ func audioRepeatInformational(v any, rows *[]Row) {
 			itoa(maxDiff) + ". Not scored either way: this project found no specification text requiring offline rendering to be deterministic.",
 	})
 }
+
+const (
+	audioScaleMaxRelativeResidual = 2.384185791015625e-07
+
+	audioScaleMinSamples = 32
+)
+
+func audioUniformScale(views any) (explanation, Row, bool) {
+	scale, ok := object(views, "scale")
+	if !ok {
+		return explanation{}, Row{}, false
+	}
+	fitted, haveFitted := boolean(scale, "fitted")
+	if !haveFitted {
+		return explanation{}, Row{}, false
+	}
+	if !fitted {
+		reason, _ := str(scale, "reason")
+		return explanation{}, Row{
+			Label: "the shape of the disagreement",
+			Value: "no single factor was fitted",
+			Note:  clip(reason, 160),
+		}, true
+	}
+
+	factor, haveFactor := num(scale, "factor")
+	compared, haveCompared := num(scale, "comparedSamples")
+	residual, haveResidual := num(scale, "maxRelativeResidual")
+	zerosAltered, haveZeros := num(scale, "zerosAltered")
+	if !haveFactor || !haveCompared || !haveResidual || !haveZeros {
+		return explanation{}, Row{
+			Label: "the shape of the disagreement",
+			Value: "not characterised",
+			Note:  "the fit was reported without the figures needed to read it",
+		}, true
+	}
+
+	summary := "one factor of " + itoa(factor) + " fitted over " + itoa(compared) +
+		" sample(s), largest departure from it " + itoa(residual) + " of the value"
+
+	switch {
+	case compared < audioScaleMinSamples:
+		return explanation{}, Row{
+			Label: "the shape of the disagreement",
+			Value: "too few samples to characterise",
+			Note:  summary + "; fewer than " + itoa(audioScaleMinSamples) + " samples cannot establish a shape",
+		}, true
+	case zerosAltered > 0:
+		return explanation{}, Row{
+			Label: "the shape of the disagreement",
+			Value: "not one uniform scaling",
+			Note:  summary + "; " + itoa(zerosAltered) + " sample(s) that read zero on one path did not read zero on the other, which no scaling can do",
+		}, true
+	case residual > audioScaleMaxRelativeResidual:
+		return explanation{}, Row{
+			Label: "the shape of the disagreement",
+			Value: "not one uniform scaling",
+			Note:  summary + "; the departures exceed what rounding a scaled copy to single precision can account for, so the two readings differ sample by sample",
+		}, true
+	}
+
+	return explainedStructurally(audioUniformScaleNote), Row{
+		Label: "the shape of the disagreement",
+		Value: "one uniform scaling of the whole channel",
+		Note:  summary + ". " + audioUniformScaleNote,
+	}, true
+}
+
+const audioUniformScaleNote = "every sample differs by the same factor, within what rounding a scaled copy to single precision accounts for, and every sample that read zero on one path read zero on the other: the two readings hold the same signal at two scales rather than two different signals. A transform that preserves the structure of what it alters is the shape a declared privacy measure takes, so this is read as an environment that reports itself modified rather than as two facts that cannot both be true"

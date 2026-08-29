@@ -2813,7 +2813,40 @@ function audioCompareChannelArrays(a, b, acc) {
       acc.differingSampleCount++;
       if (d > acc.maxAbsoluteDifference) acc.maxAbsoluteDifference = d;
     }
+    if (!acc.ratios) continue;
+    if (a[i] === 0) {
+      if (b[i] !== 0) acc.zerosAltered++;
+      continue;
+    }
+    acc.ratios.push(b[i] / a[i]);
   }
+}
+
+function audioScaleFit(acc) {
+  if (!acc.ratios || acc.ratios.length === 0) {
+    return { fitted: false, reason: "no sample with a non-zero first reading was compared" };
+  }
+  var sorted = acc.ratios.slice().sort(function (x, y) {
+    return x - y;
+  });
+  var factor = sorted[Math.floor(sorted.length / 2)];
+  if (!isFinite(factor) || factor === 0) {
+    return { fitted: false, reason: "the ratio between the two readings did not fit one finite factor" };
+  }
+  var maxRelativeResidual = 0;
+  for (var i = 0; i < sorted.length; i++) {
+    var residual = Math.abs(sorted[i] / factor - 1);
+    if (residual > maxRelativeResidual) maxRelativeResidual = residual;
+  }
+  return {
+    fitted: true,
+    factor: factor,
+    comparedSamples: sorted.length,
+    maxRelativeResidual: maxRelativeResidual,
+    ratioMin: sorted[0],
+    ratioMax: sorted[sorted.length - 1],
+    zerosAltered: acc.zerosAltered
+  };
 }
 
 function audioBufferDescription(buffer) {
@@ -2873,7 +2906,7 @@ var AUDIO_PROBES = [
           var hasCopy = typeof buffer.copyFromChannel === "function";
           out.copyFromChannelAvailable = hasCopy;
           if (hasCopy && served !== null) {
-            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0, zerosAltered: 0, ratios: [] };
             var channels = Math.min(out.rendered.numberOfChannels, served);
             var ranAny = false;
             for (var c = 0; c < channels; c++) {
@@ -2892,7 +2925,8 @@ var AUDIO_PROBES = [
                 agree: acc.differingSampleCount === 0,
                 sampleCount: acc.sampleCount,
                 differingSampleCount: acc.differingSampleCount,
-                maxAbsoluteDifference: acc.maxAbsoluteDifference
+                maxAbsoluteDifference: acc.maxAbsoluteDifference,
+                scale: audioScaleFit(acc)
               };
             } else {
               out.views = { compared: false };
@@ -2971,7 +3005,7 @@ var AUDIO_PROBES = [
               null
             );
             if (!secondChannel) return out;
-            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0, zerosAltered: 0, ratios: [] };
             audioCompareChannelArrays(firstChannel, secondChannel, acc);
             out.repeat = {
               compared: true,
