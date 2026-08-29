@@ -20,26 +20,25 @@ func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "nothing could be compared",
-			Note:  "too little of what this section needs was collected or established as valid",
+			Note:  anomalyNote,
 		})
 	case Contradiction:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: mediaPathCount(t.unexplained) + " of " + mediaPathCount(t.applied) + " requirements did not hold",
-			Note: "matchMedia, the cascade and the viewport this browser reports through JavaScript are not consistent with each other." +
-				partlyExplainedNote(t.explained),
+			Note:  anomalyNote,
 		})
 	case Instrumented:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: mediaPathCount(t.explained) + " of " + mediaPathCount(t.applied) + " requirements did not hold",
-			Note:  explainedConclusion,
+			Note:  anomalyNote,
 		})
 	default:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "matchMedia, the cascade and the JavaScript-read viewport agree",
-			Note:  mediaPathCount(t.applied) + " requirements applied",
+			Note:  anomalyNote,
 		})
 	}
 	return s
@@ -52,7 +51,7 @@ const mediaPathMaxRows = 8
 func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applied, failed int) {
 	raw, ok := r.value("media.stylesheet")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "stylesheet probe", Value: "not collected", Note: "the collector did not report it"})
+		s.Rows = append(s.Rows, Row{Label: "stylesheet probe", Value: "not collected", Note: anomalyNote})
 		return 0, 0
 	}
 	controlOk, _ := boolean(raw, "controlOk")
@@ -60,17 +59,17 @@ func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applie
 		s.Rows = append(s.Rows, Row{
 			Label: "stylesheet read-back",
 			Value: "not established",
-			Note:  "an unconditional declaration on the probe's own selector did not read back through getComputedStyle, so nothing else this probe reported is trusted this run",
+			Note:  anomalyNote,
 		})
 		return 0, 0
 	}
 	widthValid, _ := boolean(raw, "widthValid")
 	heightValid, _ := boolean(raw, "heightValid")
 	if !widthValid {
-		s.Rows = append(s.Rows, Row{Label: "width feature, stylesheet path", Value: "not established", Note: "a tautological min-width/max-width pair that must always match did not read back as matching"})
+		s.Rows = append(s.Rows, Row{Label: "width feature, stylesheet path", Value: "not established", Note: anomalyNote})
 	}
 	if !heightValid {
-		s.Rows = append(s.Rows, Row{Label: "height feature, stylesheet path", Value: "not established", Note: "a tautological min-height/max-height pair that must always match did not read back as matching"})
+		s.Rows = append(s.Rows, Row{Label: "height feature, stylesheet path", Value: "not established", Note: anomalyNote})
 	}
 
 	rowsUsed := 0
@@ -105,7 +104,7 @@ func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applie
 				s.Rows = append(s.Rows, Row{
 					Label: "matchMedia vs the cascade",
 					Value: "(" + op + "-" + feature + ": " + itoa(px) + "px): matchMedia said " + mediaPathBoolWord(js) + ", the cascade said " + mediaPathBoolWord(css),
-					Note:  cascade.annotate("the same query, evaluated by two paths of the same engine, must agree"),
+					Note:  anomalyNote,
 				})
 			}
 		}
@@ -159,7 +158,7 @@ func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applie
 				s.Rows = append(s.Rows, Row{
 					Label: "matchMedia vs the cascade",
 					Value: clip(feature, 40) + ": matchMedia said " + clip(b.jsTrue[0], 40) + ", the cascade said " + clip(b.cssTrue[0], 40),
-					Note:  cascade.annotate("this feature's values are mutually exclusive, and the same query evaluated by two paths of the same engine must agree"),
+					Note:  anomalyNote,
 				})
 			}
 		}
@@ -170,7 +169,7 @@ func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applie
 func mediaPathReadComplement(r Request, s *Section, mm explanation) (applied, failed int) {
 	raw, ok := r.value("media.complement")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "complement probe", Value: "not collected", Note: "the collector did not report it"})
+		s.Rows = append(s.Rows, Row{Label: "complement probe", Value: "not collected", Note: anomalyNote})
 		return 0, 0
 	}
 
@@ -201,7 +200,7 @@ func mediaPathReadComplement(r Request, s *Section, mm explanation) (applied, fa
 				s.Rows = append(s.Rows, Row{
 					Label: "query and its negation",
 					Value: clip(q, 80) + " and its negation " + word,
-					Note:  mm.annotate("a query and its own negation cannot agree"),
+					Note:  anomalyNote,
 				})
 			}
 		}
@@ -232,7 +231,7 @@ func mediaPathReadComplement(r Request, s *Section, mm explanation) (applied, fa
 					s.Rows = append(s.Rows, Row{
 						Label: "bracket vs the JavaScript-read viewport",
 						Value: clip(feature, 40) + " " + label,
-						Note:  mm.annotate("the width/height media feature is defined as the same viewport quantity JavaScript reads directly, so a bracket around it cannot exclude it and a query just past it cannot include it"),
+						Note:  anomalyNote,
 					})
 				}
 			}

@@ -14,7 +14,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "ICE gathering",
 			Value: "reported unsupported",
-			Note:  "this browser does not offer the interface this reading watches; a browser is never read as lacking a feature",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -24,7 +24,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "ICE gathering",
 			Value: "not collected",
-			Note:  "this reading has nothing to read a gathering process's own machinery against, so it carries no weight either way",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -38,7 +38,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "ICE gathering",
 			Value: "reported incompletely",
-			Note:  "the gathering state or the timeout flag was missing from the payload, so this reading cannot place what was measured",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -46,17 +46,17 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "gathering state, at the end of this reading's watch",
 		Value: valueOrAbsent(finalState),
-		Note:  "the state the gathering process itself reported, not a state this reading assigns to it",
+		Note:  anomalyNote,
 	})
 	s.Rows = append(s.Rows, Row{
 		Label: "states observed in order",
 		Value: joinLimit(sawStates, 10),
-		Note:  "the sequence of iceGatheringState values this session transitioned through",
+		Note:  anomalyNote,
 	})
 	s.Rows = append(s.Rows, Row{
 		Label: "gathering reached its own deadline before finishing",
 		Value: answerOrAbsent(timedOut, true),
-		Note:  "when true, the state above is the last one observed, not a completed one",
+		Note:  anomalyNote,
 	})
 
 	counts := countIceCandidateTypes(candidateTypes)
@@ -64,7 +64,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "candidates of type " + t,
 			Value: itoa(float64(counts[t])),
-			Note:  "",
+			Note:  anomalyNote,
 		})
 	}
 	unknown := len(candidateTypes) - counts["host"] - counts["srflx"] - counts["prflx"] - counts["relay"]
@@ -72,7 +72,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "candidates of an unrecognised type",
 			Value: itoa(float64(unknown)),
-			Note:  "reported by the gathering process under a type this reading does not know",
+			Note:  anomalyNote,
 		})
 	}
 
@@ -84,7 +84,7 @@ func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: conclusion,
-		Note:  "this reading only checks a gathering process against its own reported state; this project has not established what candidate count an honest environment of any given network configuration should produce, so it never carries a verdict, only a record of what the process reported about itself",
+		Note:  anomalyNote,
 	})
 	return s
 }

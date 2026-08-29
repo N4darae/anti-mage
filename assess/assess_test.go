@@ -123,14 +123,14 @@ func honest() map[string]Observation {
 				"actualBoundingBoxAscent": 0, "actualBoundingBoxDescent": 0,
 				"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
 				"emHeightAscent": 24, "emHeightDescent": 6,
-				"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -6
+				"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8
 			}},
 			"full": {"width": 123.4, "box": {
 				"actualBoundingBoxLeft": 0, "actualBoundingBoxRight": 123.4,
 				"actualBoundingBoxAscent": 21, "actualBoundingBoxDescent": 5,
 				"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
 				"emHeightAscent": 24, "emHeightDescent": 6,
-				"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -6
+				"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8
 			}},
 			"repeat": {"width": 123.4},
 			"prefixWidths": [0, 10, 20, 35, 60, 90, 123.4]

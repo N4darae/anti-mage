@@ -15,7 +15,9 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -32,6 +34,8 @@ type Options struct {
 	Web fs.FS
 
 	Log *log.Logger
+
+	DumpDir string
 }
 
 type Server struct {
@@ -183,7 +187,27 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	env.FontControls = inputs.FontControls
 	env.ElapsedMS = inputs.ElapsedMS
 
-	writeJSON(w, http.StatusOK, assess.Evaluate(env))
+	rep := assess.Evaluate(env)
+	s.dumpPayload(body, rep)
+
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func (s *Server) dumpPayload(body []byte, rep assess.Assessment) {
+	if s.opts.DumpDir == "" {
+		return
+	}
+	if err := os.MkdirAll(s.opts.DumpDir, 0o755); err != nil {
+		s.logger.Printf("dump directory: %v", err)
+		return
+	}
+	name := fmt.Sprintf("scan-%s-%s-%d.json", time.Now().Format("20060102-150405"), rep.Determination, rep.Score)
+	dest := filepath.Join(s.opts.DumpDir, name)
+	if err := os.WriteFile(dest, body, 0o644); err != nil {
+		s.logger.Printf("writing %s: %v", dest, err)
+		return
+	}
+	s.logger.Printf("saved this payload to %s", dest)
 }
 
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {

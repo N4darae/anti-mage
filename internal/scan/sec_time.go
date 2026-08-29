@@ -12,7 +12,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 
 	zoneRaw, haveZone := r.value("time.zone")
 	if !haveZone {
-		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not collected", Note: "the collector did not report it"})
+		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 	zone, ok := str(zoneRaw, "timeZone")
@@ -25,13 +25,13 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		}
 	}
 	if locale, have := str(zoneRaw, "locale"); have {
-		s.Rows = append(s.Rows, Row{Label: "resolved locale", Value: clip(locale, 80), Note: "reported, not compared: a locale is a preference, not a fact about the host"})
+		s.Rows = append(s.Rows, Row{Label: "resolved locale", Value: clip(locale, 80), Note: anomalyNote})
 	}
 	if !ok || zone == "" {
-		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not reported", Note: "no zone to compare offsets against"})
+		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not reported", Note: anomalyNote})
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "time zone", Value: clip(zone, 80), Note: "from Intl.DateTimeFormat resolvedOptions"})
+	s.Rows = append(s.Rows, Row{Label: "time zone", Value: clip(zone, 80), Note: anomalyNote})
 
 	loc, err := time.LoadLocation(zone)
 	if err != nil {
@@ -39,14 +39,14 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "this build's copy of the zone database does not contain that zone",
-			Note:  "the browser may carry a newer database than this build; nothing is concluded",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 
 	samples, haveSamples := readOffsets(r)
 	if !haveSamples {
-		s.Rows = append(s.Rows, Row{Label: "measured offsets", Value: "not collected", Note: "the collector did not sample getTimezoneOffset"})
+		s.Rows = append(s.Rows, Row{Label: "measured offsets", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 
@@ -67,7 +67,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "none of the instants this server issued were sampled",
-			Note:  "the offsets came back for instants the collector chose, which this server cannot treat as unpredictable",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -96,17 +96,17 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "instants compared",
 		Value: strconv.Itoa(usable) + " of " + strconv.Itoa(len(samples)),
-		Note:  strconv.Itoa(guarded) + " discarded for falling within 48 hours of a transition in that zone",
+		Note:  anomalyNote,
 	})
 	if len(issued) > 0 {
 		s.Rows = append(s.Rows, Row{
 			Label: "instants this server issued",
 			Value: strconv.Itoa(matchedIssued) + " of " + strconv.Itoa(len(issued)),
-			Note:  "chosen per scan so they cannot be answered from a table",
+			Note:  anomalyNote,
 		})
 	}
 	if usable < 2 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "too few instants survived", Note: "at least two are required"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "too few instants survived", Note: anomalyNote})
 		return s
 	}
 	if mismatched >= 2 {
@@ -114,7 +114,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: strconv.Itoa(mismatched) + " of " + strconv.Itoa(usable) + " offsets do not match the named zone",
-			Note:  firstBad,
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -122,7 +122,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "one offset out of " + strconv.Itoa(usable) + " did not match",
-			Note:  "one is not enough: a single zone rule that changed between this build and the browser's would do the same. " + firstBad,
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -130,7 +130,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "every offset matches the zone the browser names",
-		Note:  strconv.Itoa(usable) + " instants compared against this host's IANA zone database",
+		Note:  anomalyNote,
 	})
 	return s
 }

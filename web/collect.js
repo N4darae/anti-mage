@@ -3,6 +3,8 @@ var AM = (function () {
   "use strict";
 
   var PROBE_TIMEOUT_MS = 9000;
+  var ICE_DEADLINE_MS = 5000;
+  var ICE_POLL_MS = 100;
 
   function Unsupported(reason) {
     var e = new Error(reason || "facility not available");
@@ -1349,7 +1351,7 @@ var AM = (function () {
     {
       id: "webrtc.ice",
       group: "webrtc",
-      run: function () {
+      prime: function () {
         var Ctor = window.RTCPeerConnection || window.webkitRTCPeerConnection;
         if (typeof Ctor !== "function") unsupported("no peer connection interface is available");
         var pc;
@@ -1360,6 +1362,8 @@ var AM = (function () {
         }
         var sawStates = [];
         var candidateTypes = [];
+        var gatheringEvents = 0;
+        var candidateEvents = 0;
         function noteState() {
           var st = attempt(function () {
             return pc.iceGatheringState;
@@ -1372,12 +1376,14 @@ var AM = (function () {
           settle = resolve;
         });
         pc.onicegatheringstatechange = function () {
+          gatheringEvents += 1;
           noteState();
           if (attempt(function () {
             return pc.iceGatheringState;
           }, null) === "complete") settle(true);
         };
         pc.onicecandidate = function (ev) {
+          candidateEvents += 1;
           if (!ev.candidate) {
             noteState();
             settle(true);
@@ -1391,6 +1397,8 @@ var AM = (function () {
         try {
           pc.createDataChannel("am-probe");
         } catch (e) {}
+        var localDescriptionSet = false;
+        var describeError = null;
         var offered = Promise.resolve()
           .then(function () {
             return pc.createOffer();
@@ -1398,12 +1406,33 @@ var AM = (function () {
           .then(function (offer) {
             return pc.setLocalDescription(offer);
           })
+          .then(function () {
+            localDescriptionSet = true;
+          })
           .catch(function (e) {
-            return null;
+            describeError = reasonOf(e);
           });
+        var settled = false;
+        finished.then(function () {
+          settled = true;
+        });
+        var poll = setInterval(function () {
+          if (settled) {
+            clearInterval(poll);
+            return;
+          }
+          if (attempt(function () {
+            return pc.iceGatheringState;
+          }, null) !== "new") return;
+          if (sdpCandidateLines(pc) > 0) {
+            clearInterval(poll);
+            settle(true);
+          }
+        }, ICE_POLL_MS);
+
         return offered
           .then(function () {
-            return withTimeout(finished, 5000, "ice gathering").then(
+            return withTimeout(finished, ICE_DEADLINE_MS, "ice gathering").then(
               function () {
                 return false;
               },
@@ -1413,16 +1442,30 @@ var AM = (function () {
             );
           })
           .then(function (timedOut) {
+            clearInterval(poll);
             noteState();
-            try {
-              pc.close();
-            } catch (e) {}
-            return {
-              finalState: sawStates.length ? sawStates[sawStates.length - 1] : null,
-              timedOut: timedOut,
-              sawStates: sawStates,
-              candidateTypes: candidateTypes
-            };
+            var signalingState = attempt(function () {
+              return pc.signalingState;
+            }, null);
+            return countLocalCandidates(pc).then(function (own) {
+              try {
+                pc.close();
+              } catch (e) {}
+              return {
+                finalState: sawStates.length ? sawStates[sawStates.length - 1] : null,
+                timedOut: timedOut,
+                sawStates: sawStates,
+                candidateTypes: candidateTypes,
+                localDescriptionSet: localDescriptionSet,
+                describeError: describeError,
+                signalingState: signalingState,
+                gatheringEvents: gatheringEvents,
+                candidateEvents: candidateEvents,
+                sdpCandidateLines: own.sdpCandidateLines,
+                statsLocalCandidates: own.statsLocalCandidates,
+                statsRead: own.statsRead
+              };
+            });
           });
       }
     },
@@ -2813,7 +2856,40 @@ function audioCompareChannelArrays(a, b, acc) {
       acc.differingSampleCount++;
       if (d > acc.maxAbsoluteDifference) acc.maxAbsoluteDifference = d;
     }
+    if (!acc.ratios) continue;
+    if (a[i] === 0) {
+      if (b[i] !== 0) acc.zerosAltered++;
+      continue;
+    }
+    acc.ratios.push(b[i] / a[i]);
   }
+}
+
+function audioScaleFit(acc) {
+  if (!acc.ratios || acc.ratios.length === 0) {
+    return { fitted: false, reason: "no sample with a non-zero first reading was compared" };
+  }
+  var sorted = acc.ratios.slice().sort(function (x, y) {
+    return x - y;
+  });
+  var factor = sorted[Math.floor(sorted.length / 2)];
+  if (!isFinite(factor) || factor === 0) {
+    return { fitted: false, reason: "the ratio between the two readings did not fit one finite factor" };
+  }
+  var maxRelativeResidual = 0;
+  for (var i = 0; i < sorted.length; i++) {
+    var residual = Math.abs(sorted[i] / factor - 1);
+    if (residual > maxRelativeResidual) maxRelativeResidual = residual;
+  }
+  return {
+    fitted: true,
+    factor: factor,
+    comparedSamples: sorted.length,
+    maxRelativeResidual: maxRelativeResidual,
+    ratioMin: sorted[0],
+    ratioMax: sorted[sorted.length - 1],
+    zerosAltered: acc.zerosAltered
+  };
 }
 
 function audioBufferDescription(buffer) {
@@ -2873,7 +2949,7 @@ var AUDIO_PROBES = [
           var hasCopy = typeof buffer.copyFromChannel === "function";
           out.copyFromChannelAvailable = hasCopy;
           if (hasCopy && served !== null) {
-            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0, zerosAltered: 0, ratios: [] };
             var channels = Math.min(out.rendered.numberOfChannels, served);
             var ranAny = false;
             for (var c = 0; c < channels; c++) {
@@ -2892,7 +2968,8 @@ var AUDIO_PROBES = [
                 agree: acc.differingSampleCount === 0,
                 sampleCount: acc.sampleCount,
                 differingSampleCount: acc.differingSampleCount,
-                maxAbsoluteDifference: acc.maxAbsoluteDifference
+                maxAbsoluteDifference: acc.maxAbsoluteDifference,
+                scale: audioScaleFit(acc)
               };
             } else {
               out.views = { compared: false };
@@ -2971,7 +3048,7 @@ var AUDIO_PROBES = [
               null
             );
             if (!secondChannel) return out;
-            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0 };
+            var acc = { sampleCount: 0, differingSampleCount: 0, maxAbsoluteDifference: 0, zerosAltered: 0, ratios: [] };
             audioCompareChannelArrays(firstChannel, secondChannel, acc);
             out.repeat = {
               compared: true,
@@ -3119,11 +3196,49 @@ var AUDIO_PROBES = [
     }, null);
   }
 
-  function runProbe(p) {
+  function sdpCandidateLines(pc) {
+    var sdp = attempt(function () {
+      return pc.localDescription ? pc.localDescription.sdp : null;
+    }, null);
+    if (typeof sdp !== "string") return -1;
+    return (sdp.match(/^a=candidate:/gm) || []).length;
+  }
+
+  function countLocalCandidates(pc) {
+    var found = sdpCandidateLines(pc);
+    var lines = found < 0 ? null : found;
+    var stats = attempt(function () {
+      return pc.getStats();
+    }, null);
+    if (!stats || typeof stats.then !== "function") {
+      return Promise.resolve({ sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false });
+    }
+    return withTimeout(stats, 2000, "getStats").then(
+      function (report) {
+        var n = 0;
+        attempt(function () {
+          report.forEach(function (entry) {
+            if (entry && entry.type === "local-candidate") n += 1;
+          });
+          return true;
+        }, null);
+        return { sdpCandidateLines: lines, statsLocalCandidates: n, statsRead: true };
+      },
+      function () {
+        return { sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false };
+      }
+    );
+  }
+
+  function startProbe(p) {
+    return new Promise(function (resolve) {
+      resolve(p.prime ? p.prime() : p.run());
+    });
+  }
+
+  function runProbe(p, started) {
     return withTimeout(
-      new Promise(function (resolve) {
-        resolve(p.run());
-      }),
+      started || startProbe(p),
       PROBE_TIMEOUT_MS,
       p.id
     ).then(
@@ -3145,11 +3260,18 @@ var AUDIO_PROBES = [
     return loadBootstrap().then(function (b) {
       bootstrap = b;
       var out = {};
+      var started = {};
+      probes.forEach(function (p) {
+        if (!p.prime) return;
+        var pending = startProbe(p);
+        pending.catch(function () {});
+        started[p.id] = pending;
+      });
       var chain = Promise.resolve();
       probes.forEach(function (p, i) {
         chain = chain.then(function () {
           if (onProgress) onProgress(i, probes.length, p.id);
-          return runProbe(p).then(function (r) {
+          return runProbe(p, started[p.id]).then(function (r) {
             out[p.id] = r;
           });
         });
