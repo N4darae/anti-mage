@@ -35,7 +35,7 @@ func rectAssertEqual(s *Section, label string, got, want float64, e explanation)
 		s.Rows = append(s.Rows, Row{
 			Label: label,
 			Value: "does not hold",
-			Note:  e.annotate("computed " + itoa(got) + ", expected " + itoa(want) + " from this rect's own other fields"),
+			Note:  anomalyNote,
 		})
 	}
 	return
@@ -130,7 +130,7 @@ func textmAssertEqual(s *Section, label string, got, want float64, e explanation
 		s.Rows = append(s.Rows, Row{
 			Label: label,
 			Value: "does not hold",
-			Note:  e.annotate("computed " + itoa(got) + ", expected " + itoa(want)),
+			Note:  anomalyNote,
 		})
 	}
 	return
@@ -210,7 +210,7 @@ func textmReportMonotonicity(s *Section, widths []float64) {
 	s.Rows = append(s.Rows, Row{
 		Label: "text metrics: width across prefixes",
 		Value: value,
-		Note:  "not a requirement: kerning and ligature substitution can legitimately narrow a longer prefix, so this is reported only and never affects the determination",
+		Note:  anomalyNote,
 	})
 }
 
@@ -253,7 +253,7 @@ func sectionRects(r Request, _ Inputs, c claim) Section {
 			t.fold(a, f, rects)
 		}
 	} else {
-		s.Rows = append(s.Rows, Row{Label: "rect geometry", Value: "not collected", Note: "the collector did not report a usable rect.identities probe"})
+		s.Rows = append(s.Rows, Row{Label: "rect geometry", Value: "not collected", Note: anomalyNote})
 	}
 
 	if v, ok := r.value("text.metrics"); ok {
@@ -306,34 +306,33 @@ func sectionRects(r Request, _ Inputs, c claim) Section {
 			textmReportMonotonicity(&s, widths)
 		}
 		if !haveEmptyObj && !haveFullObj {
-			s.Rows = append(s.Rows, Row{Label: "text metrics", Value: "not collected", Note: "the collector reported text.metrics without a usable empty or full measurement"})
+			s.Rows = append(s.Rows, Row{Label: "text metrics", Value: "not collected", Note: anomalyNote})
 		}
 	} else {
-		s.Rows = append(s.Rows, Row{Label: "text metrics", Value: "not collected", Note: "the collector did not report a usable text.metrics probe"})
+		s.Rows = append(s.Rows, Row{Label: "text metrics", Value: "not collected", Note: anomalyNote})
 	}
 
 	s.Determination = t.determination()
 	switch s.Determination {
 	case Inconclusive:
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: "too few of these probes' fields were reported"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: anomalyNote})
 	case Contradiction:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: itoa(float64(t.unexplained)) + " of " + itoa(float64(t.applied)) + " identities did not hold",
-			Note: "the numbers this browser reported for its own layout or text measurement are not consistent with each other." +
-				partlyExplainedNote(t.explained),
+			Note:  anomalyNote,
 		})
 	case Instrumented:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: itoa(float64(t.explained)) + " of " + itoa(float64(t.applied)) + " identities did not hold",
-			Note:  explainedConclusion,
+			Note:  anomalyNote,
 		})
 	default:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "every identity checked held",
-			Note:  itoa(float64(t.applied)) + " identities applied",
+			Note:  anomalyNote,
 		})
 	}
 	return s

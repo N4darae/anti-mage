@@ -15,7 +15,7 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "permission state",
 			Value: "not collected",
-			Note:  "this reading compares two interfaces reporting the same permission; a payload that names neither leaves it nothing to apply to, so it carries no weight either way",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -33,21 +33,21 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		[]string{"notificationsActual"},
 	)
 
-	s.Rows = append(s.Rows, Row{Label: "Permissions.query for notifications", Value: valueOrAbsent(queried), Note: "the permission state"})
-	s.Rows = append(s.Rows, Row{Label: "Notification.permission", Value: valueOrAbsent(actual), Note: "the same permission, read through the other interface"})
+	s.Rows = append(s.Rows, Row{Label: "Permissions.query for notifications", Value: valueOrAbsent(queried), Note: anomalyNote})
+	s.Rows = append(s.Rows, Row{Label: "Notification.permission", Value: valueOrAbsent(actual), Note: anomalyNote})
 
 	if queried == "" && actual == "" {
 		s.Determination = Unverified
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "neither reading was reported",
-			Note:  "an observation was collected but named neither interface, so this reading has nothing to apply to",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 	if queried == "" || actual == "" {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: "a comparison needs both, so this reading has nothing to apply to"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: anomalyNote})
 		return s
 	}
 	want, known := notificationEquivalent[queried]
@@ -56,7 +56,7 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the reported state is not one this project's table knows",
-			Note:  "a state this project cannot place carries no weight, in either direction",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -65,7 +65,7 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the two interfaces report different states for one permission",
-			Note:  "the permission state " + clip(queried, 40) + " corresponds to " + want + ", not " + clip(actual, 40),
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -73,7 +73,7 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "both interfaces report the same permission state",
-		Note:  "",
+		Note:  anomalyNote,
 	})
 	return s
 }

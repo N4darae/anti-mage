@@ -236,9 +236,4 @@ func TestMathRepeatRowsAreBounded(t *testing.T) {
 	if len(sec.Rows) > mathMaxRows+2 {
 		t.Errorf("%d rows from 500 disagreements; the cap is %d plus the conclusion", len(sec.Rows), mathMaxRows)
 	}
-	for _, row := range sec.Rows {
-		if row.Label == "conclusion" && !strings.Contains(row.Note, "500 repeat disagreement(s)") {
-			t.Errorf("the conclusion stopped counting past the row cap: %q", row.Note)
-		}
-	}
 }

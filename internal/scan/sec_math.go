@@ -1,7 +1,5 @@
 package scan
 
-import "strconv"
-
 func sectionMath(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Inconclusive}
 
@@ -12,7 +10,7 @@ func sectionMath(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "nothing to examine",
-			Note:  "neither the exact-result probe nor the repeated-call probe reported a readable case",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -22,7 +20,7 @@ func sectionMath(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "a numeric built-in disagreed with what the specification requires, or with its own second call",
-			Note:  strconv.Itoa(exactWrong) + " exact mismatch(es), " + strconv.Itoa(repeatWrong) + " repeat disagreement(s)",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -31,7 +29,7 @@ func sectionMath(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "every exactly-specified result matched the specification, and every repeated call agreed with its own earlier reading",
-		Note:  strconv.Itoa(exactSeen) + " exact case(s) and " + strconv.Itoa(repeatSeen) + " repeated call(s) examined",
+		Note:  anomalyNote,
 	})
 	return s
 }
@@ -201,7 +199,7 @@ func mathRunExact(r Request, s *Section) (seen, wrong int) {
 					s.Rows = append(s.Rows, Row{
 						Label: c.expr,
 						Value: "reported " + clip(got, 40),
-						Note:  g.clause + " requires " + c.expected,
+						Note:  anomalyNote,
 					})
 				}
 			}
@@ -235,7 +233,7 @@ func mathRunRepeat(r Request, s *Section) (seen, wrong int) {
 				s.Rows = append(s.Rows, Row{
 					Label: "Math." + clip(k, 40) + ", called twice with the same argument",
 					Value: "reported " + clip(a, 40) + " then " + clip(b, 40),
-					Note:  "a pure function must return the same result for the same argument in the same call",
+					Note:  anomalyNote,
 				})
 			}
 		}

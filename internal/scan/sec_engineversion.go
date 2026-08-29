@@ -29,15 +29,15 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "engine version, as claimed",
 			Value: "not reported",
-			Note:  "this reading compares an engine's reported capabilities against the version it claims; without a parseable version there is nothing to compare them to",
+			Note:  anomalyNote,
 		})
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "engine version, as claimed", Value: strconv.Itoa(claimed), Note: "the major version this environment reports for itself"})
+	s.Rows = append(s.Rows, Row{Label: "engine version, as claimed", Value: strconv.Itoa(claimed), Note: anomalyNote})
 
 	features, ok := r.value("engine.features")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "engine feature observations", Value: "not collected", Note: "no capability answers were reported, so nothing was compared"})
+		s.Rows = append(s.Rows, Row{Label: "engine feature observations", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 
@@ -59,7 +59,7 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 			laterPresent = append(laterPresent, Row{
 				Label: fe.Description,
 				Value: "present",
-				Note:  "tabulated as shipping at major " + strconv.Itoa(fe.ShipsInMajor) + ", which is later than the version this environment claims; source: " + clip(fe.Source.Origin, 120),
+				Note:  anomalyNote,
 			})
 		}
 	}
@@ -68,7 +68,7 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "no tabulated, verified capability ships after the version this environment claims",
-			Note:  "either the claimed version already covers everything this table has confirmed on a real system, or none of the tabulated capabilities were reported, so this reading has nothing to apply to this payload",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -79,7 +79,7 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "this environment demonstrates a capability tabulated as shipping later than the version it claims",
-			Note:  "a genuine engine cannot run a capability that its own claimed version predates; the claim and the capability cannot both describe one engine",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -88,7 +88,7 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "no capability later than the claimed version was demonstrated",
-		Note:  "",
+		Note:  anomalyNote,
 	})
 	return s
 }
