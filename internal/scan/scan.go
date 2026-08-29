@@ -31,6 +31,8 @@ type Section struct {
 	Title         string        `json:"title"`
 	Determination Determination `json:"determination"`
 	Rows          []Row         `json:"rows"`
+
+	weight findingWeight
 }
 
 type Summary struct {

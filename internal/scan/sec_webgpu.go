@@ -58,6 +58,17 @@ func sectionWebGPU(r Request, _ Inputs, _ claim) Section {
 		return s
 	}
 
+	if fallback, known := boolean(adapter, "variants", "fallback", "adapter"); known && fallback {
+		s.Rows = append(s.Rows, Row{Label: "adapter for the software fallback request", Value: answerOrAbsent(true, true), Note: "read only because the three requests before it came back empty"})
+		s.Determination, s.weight = Contradiction, weightOnlyDeliberate
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "the newer graphics interface refuses every device it has and then grants one",
+			Note:  "the software fallback is that interface's own backend, so an environment that is granted it was never short of a device to grant; the three refusals before it withheld the hardware device the older interface names, which is a thing this environment decided rather than a thing it lacks",
+		})
+		return s
+	}
+
 	s.Determination = Instrumented
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",

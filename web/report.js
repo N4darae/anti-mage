@@ -496,9 +496,10 @@
         h("p", {
           class: "band-note",
           text:
-            "One score for the whole scan, in steps of ten, raised only by evidence that disagrees with itself. It is not a probability, " +
-            "and it is not a total of per-reading weights. The strongest statement this page makes is that an environment appears modified; " +
-            "that describes the environment, not the person using it."
+            "One score for the whole scan, in steps of ten, raised only by evidence, and by how little other than a deliberate change accounts " +
+            "for that evidence. Each further finding raises what the ones before it left, so the scale is not a total, never falls because " +
+            "other readings agreed, and does not reach its top. The strongest statement this page makes is that an environment appears " +
+            "modified; that describes the environment, not the person using it."
         })
       )
     );

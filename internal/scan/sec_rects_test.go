@@ -25,14 +25,14 @@ const consistentTextPayload = `{
 		"actualBoundingBoxAscent": 0, "actualBoundingBoxDescent": 0,
 		"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
 		"emHeightAscent": 24, "emHeightDescent": 6,
-		"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -6
+		"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8
 	}},
 	"full": {"width": 123.4, "box": {
 		"actualBoundingBoxLeft": 0, "actualBoundingBoxRight": 123.4,
 		"actualBoundingBoxAscent": 21, "actualBoundingBoxDescent": 5,
 		"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
 		"emHeightAscent": 24, "emHeightDescent": 6,
-		"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -6
+		"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8
 	}},
 	"repeat": {"width": 123.4},
 	"prefixWidths": [0, 10, 20, 35, 60, 90, 123.4]
@@ -308,5 +308,53 @@ func TestRectsEmptyRowsAreNeverNil(t *testing.T) {
 	s := rectsOf(t, map[string]string{})
 	if s.Rows == nil {
 		t.Errorf("rows is nil; the wire contract expects an array")
+	}
+}
+
+func TestRectsContradictsWhenTheIdeographicBaselineIsNotTheFontDescent(t *testing.T) {
+	text := `{
+		"empty": {"width": 0, "box": {
+			"actualBoundingBoxLeft": 0, "actualBoundingBoxRight": 0,
+			"actualBoundingBoxAscent": 0, "actualBoundingBoxDescent": 0,
+			"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
+			"emHeightAscent": 24, "emHeightDescent": 6,
+			"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8.234375
+		}},
+		"full": {"width": 123.4, "box": {
+			"actualBoundingBoxLeft": 0, "actualBoundingBoxRight": 123.4,
+			"actualBoundingBoxAscent": 21, "actualBoundingBoxDescent": 5,
+			"fontBoundingBoxAscent": 29, "fontBoundingBoxDescent": 8,
+			"emHeightAscent": 24, "emHeightDescent": 6,
+			"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8.234375
+		}},
+		"repeat": {"width": 123.4},
+		"prefixWidths": [0, 10, 20, 35, 60, 90, 123.4]
+	}`
+	s := rectsOf(t, map[string]string{
+		"rect.identities": ok(consistentRectPayload),
+		"text.metrics":    ok(text),
+	})
+	if s.Determination != Contradiction {
+		t.Fatalf("determination = %q, want %q; rows: %+v", s.Determination, Contradiction, s.Rows)
+	}
+}
+
+func TestRectsReadsNothingIntoAnAbsentFontDescent(t *testing.T) {
+	text := `{
+		"empty": {"width": 0, "box": {
+			"actualBoundingBoxLeft": 0, "actualBoundingBoxRight": 0,
+			"actualBoundingBoxAscent": 0, "actualBoundingBoxDescent": 0,
+			"emHeightAscent": 24, "emHeightDescent": 6,
+			"hangingBaseline": 21.6, "alphabeticBaseline": 0, "ideographicBaseline": -8.234375
+		}},
+		"repeat": {"width": 0},
+		"prefixWidths": [0]
+	}`
+	s := rectsOf(t, map[string]string{
+		"rect.identities": ok(consistentRectPayload),
+		"text.metrics":    ok(text),
+	})
+	if s.Determination != Consistent {
+		t.Fatalf("determination = %q, want %q: with no descent reported there is nothing to compare the baseline against; rows: %+v", s.Determination, Consistent, s.Rows)
 	}
 }

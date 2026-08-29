@@ -164,6 +164,15 @@ func textmCheckAlphabeticBaseline(s *Section, label string, box map[string]any, 
 	return textmAssertEqual(s, label, v, 0, e)
 }
 
+func textmCheckIdeographicBaseline(s *Section, label string, box map[string]any, e explanation) (applied, failed int) {
+	ideographic, haveIdeographic := num(box, "ideographicBaseline")
+	descent, haveDescent := num(box, "fontBoundingBoxDescent")
+	if !haveIdeographic || !haveDescent {
+		return 0, 0
+	}
+	return textmAssertEqual(s, label, ideographic, -descent, e)
+}
+
 func textmReadWidths(v any, path ...string) ([]float64, bool) {
 	x, ok := field(v, path...)
 	if !ok {
@@ -280,9 +289,13 @@ func sectionRects(r Request, _ Inputs, c claim) Section {
 		if haveEmptyBox {
 			a, f := textmCheckAlphabeticBaseline(&s, "empty-string measurement: alphabeticBaseline is exactly zero", emptyBox, textm)
 			t.fold(a, f, textm)
+			a, f = textmCheckIdeographicBaseline(&s, "empty-string measurement: ideographicBaseline sits exactly at the font's descent", emptyBox, textm)
+			t.fold(a, f, textm)
 		}
 		if haveFullBox {
 			a, f := textmCheckAlphabeticBaseline(&s, "probe-string measurement: alphabeticBaseline is exactly zero", fullBox, textm)
+			t.fold(a, f, textm)
+			a, f = textmCheckIdeographicBaseline(&s, "probe-string measurement: ideographicBaseline sits exactly at the font's descent", fullBox, textm)
 			t.fold(a, f, textm)
 		}
 		if haveEmptyBox && haveFullBox {
