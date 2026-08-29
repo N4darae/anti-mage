@@ -239,6 +239,33 @@ nor the confidence, on every input shape they accept, including the inputs where
 the two environments differed. When someone establishes the honest range, the rows
 these readings have been recording are what the question gets settled against.
 
+## A connection against its own state machine
+
+The reading above declines to price candidate gathering because the honest range
+of what it produces is unknown. A separate reading, on the same observation, asks
+a question that needs no such range: whether one connection's account of itself
+holds together.
+
+Setting a local description is what asks a connection to gather. A candidate
+reaches that connection's own local description only after it has been gathered,
+and its own statistics report the same candidates through an interface separate
+from the event that announces one. So a connection that accepted a local
+description, and now carries candidates in both, has gathered them. A gathering
+state of `new`, announced by no state change at all, says the process never
+started. Both are the connection's own statements, and they cannot both be true.
+
+Nothing here reads how many candidates there are, what they contain, or what
+address they name. A connection that gathered nothing contradicts nothing, a
+gathering still in progress is an ordinary state, and a connection never given a
+local description was never asked to gather -- each of those settles nothing. Nor
+does a payload that predates the fields this reading needs, so adding it cannot
+change what an older payload scores.
+
+The one shape it does read is the shape a masking layer leaves when it is applied
+to the surfaces that announce a candidate rather than to the machinery that
+produces one. That is a fact about the environment, arrived at without naming
+what changed it, and without learning the address the masking was there to keep.
+
 ## Two graphics interfaces, one device
 
 A machine has one graphics device, and a browser offers two interfaces onto it.
