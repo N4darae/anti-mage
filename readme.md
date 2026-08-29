@@ -127,22 +127,37 @@ else, so the questions, the clock and any findings stay the caller's.
 
 ## What the score means
 
-The score counts independent bodies of evidence rather than individual checks,
-and is quantised to steps of ten, so one body of evidence cannot be separated
-from another by watching the last digit. Nothing in the assessment says which
-reading moved the number: a value that said so would be a tuning table for
-anyone shaping an environment against it.
+The score weighs independent bodies of evidence rather than individual checks,
+in steps of ten, so one body of evidence cannot be separated from another by
+watching the last digit. Nothing in the assessment says which reading moved the
+number: a value that said so would be a tuning table for anyone shaping an
+environment against it.
 <img width="1152" height="832" alt="image" src="https://github.com/user-attachments/assets/524e94cf-b7db-410f-8e23-f94e38983aa4" />
 
 
-It is an estimate, and the arithmetic errs in the direction that costs an honest
-visitor least. Absence reads as inconclusive — an observation that could not be
-made, a value that did not parse, a scope the browser refused to create, a
-reference table this project has not confirmed — and a browser is never scored
-for lacking a feature. The price is that too little evidence is uncertain in
-both directions rather than reassuring, which is what `Established()` is for. A
-score of zero says nothing disagreed; it never says an environment is
-unmodified.
+Scores read on one Windows machine:
+
+| environment | score |
+| --- | --- |
+| Chrome, stock | 0 |
+| Firefox, stock | 0 |
+| Edge, stock | 0 |
+| Brave | 10 |
+| CloakBrowser | 60 |
+| AdsPower | 70 |
+| NSTBrowser | 70 |
+| Camoufox | 90 |
+
+Brave sits at ten because it modifies the surfaces it says it modifies, which is
+the lightest thing this project records and not a claim against it.
+
+The score is an estimate, and errs in the direction that costs an honest visitor
+least. Absence reads as inconclusive — an observation that could not be made, a
+value that did not parse, a scope the browser refused to create, a reference
+table this project has not confirmed — and a browser is never scored for lacking
+a feature. The price is that too little evidence is uncertain in both directions
+rather than reassuring, which is what `Established()` is for. A score of zero
+says nothing disagreed; it never says an environment is unmodified.
 
 The strongest statement an assessment makes is that an environment appears
 modified. Privacy, accessibility and content-blocking tools modify the same
@@ -173,21 +188,17 @@ the person using it, and it names no vendor, product or tool as the cause.
 
 The simplest reading in the project needs no reference table at all.
 
-A page is given an area to draw in, and it is told the size of the output device it
-is drawn on. Both are reported in CSS pixels, and both scale together: a display
-scaling factor that inflates the viewport inflates the reported screen with it. So
-a viewport larger than its own screen is not a matter of degree or of any vendor's
-behaviour. It is arithmetic.
+A page is given an area to draw in, and it is told the size of the device it is
+drawn on. Both are in CSS pixels and both scale together, so a viewport larger
+than its own screen is arithmetic rather than a matter of degree or of any
+vendor's behaviour.
 
-The reading declines wherever the arithmetic stops being decisive. A window
-positioned so that part of it hangs off the bottom of the screen is ordinary, and
-is not read as anything; only the drawing area itself is compared, never the window
-box or the work area, because a window may legitimately overlap a taskbar or extend
-past an edge. A window whose offset from the origin is negative sits on a display
-other than the one measured, whose size this reading was never given, so it
-abstains. A screen or viewport reported as having no size settles nothing. And a
-payload missing any of the four numbers carries no weight either way, so adding
-this reading cannot change what an older payload scores.
+The reading declines wherever the arithmetic stops being decisive: only the
+drawing area is compared, never the window box or the work area, because a window
+may legitimately overlap a taskbar or hang off an edge. A negative offset from the
+origin puts the window on a display this reading was never given the size of. A
+screen or viewport of no size settles nothing. And a payload missing any of the
+four numbers carries no weight either way.
 
 ## Capabilities against the version claimed
 
@@ -198,46 +209,38 @@ capability the claimed version should have and does not is never read as
 anything.
 
 The asymmetry is the whole design. A capability can be missing on an honest
-machine for a dozen reasons that belong to a policy, a build or a platform
-rather than to the engine's age, so absence establishes nothing. But an engine
-that answers for something introduced after the version it claims cannot be
-explained that way. That direction is also where the common failure lies: a tool
-that keeps a newer engine and rewrites the version string leaves exactly this
-trace.
+machine for reasons that belong to a policy, a build or a platform rather than to
+the engine's age, so absence establishes nothing. An engine that answers for
+something introduced after the version it claims cannot be explained that way,
+and that is where the common failure lies: a tool keeping a newer engine and
+rewriting the version string leaves exactly this trace.
 
 The table records which major version each capability shipped in, sourced to the
-vendor's release notes. Only the rows observed on a real system of that version
-are verified; the rest are read as unverified, so the reading declines to use
-them. It also declines when no version can be parsed from what the environment
-claims, when no capability was reported, and when no verified row is later than
-the version claimed -- which is the ordinary case for an environment running the
-newest release, where there is nothing later to test it against.
+vendor's release notes, and only rows observed on a real system of that version
+are verified. The reading also declines when no version parses, when no
+capability was reported, and when no verified row is later than the version
+claimed -- the ordinary case on the newest release.
 
-The checks themselves live in the collector, as code rather than as expressions
-sent from here to be evaluated. The capabilities are public knowledge, so
-choosing them here would buy nothing that the page could not have prepared for
-anyway, and a collector that evaluated strings from the server would no longer
-be a collector whose behaviour can be read from its own source.
+The checks live in the collector, as code rather than as expressions sent from
+here. The capabilities are public knowledge, so choosing them here would buy
+nothing, and a collector that evaluated strings from the server would no longer
+be one whose behaviour can be read from its own source.
 
 ## Readings that record without scoring
 
-Two readings here reach no verdict at all, by construction, and it is worth
-saying why they exist.
+Two readings here reach no verdict at all, by construction.
 
 A surface can be worth watching before this project knows what an honest browser
 does on it. Candidate gathering produces a state sequence and a set of candidate
 kinds; two serialisation paths for one drawing surface produce two byte streams.
-In both cases a difference has been observed between one environment and another,
-and in neither case has the range an unmodified browser produces across builds,
-drivers and configurations been established. A verdict drawn from that would be a
-guess wearing the clothes of evidence, which is what the verified flag on a
-reference table exists to prevent.
+Environments differ on both, and on neither has the range an unmodified browser
+produces across builds, drivers and configurations been established. A verdict
+drawn from that would be a guess wearing the clothes of evidence.
 
 So they collect, they show what they read, and they carry no weight in any
-direction. Their tests assert that: adding either of them moves neither the band
-nor the confidence, on every input shape they accept, including the inputs where
-the two environments differed. When someone establishes the honest range, the rows
-these readings have been recording are what the question gets settled against.
+direction; their tests assert that adding either moves neither the band nor the
+confidence. When someone establishes the honest range, the rows they have been
+recording are what the question gets settled against.
 
 ## Two graphics interfaces, one device
 
@@ -246,51 +249,48 @@ An environment where the older interface names a hardware device by vendor and
 model, while the newer interface grants no adapter at all, is reporting two
 different machines through two windows onto the same one.
 
-This is read as a modification rather than as a false claim, and it raises the
-score by one step rather than the step a contradiction raises it by. The reason
-is that an honest machine can reach this state: a policy may disable the newer
-interface, a driver may be excluded from it, and a device may support the older
-interface's backend without supporting the newer one's. What the reading
-establishes is that something between the two interfaces has been changed, which
-is a fact about the environment and not about the person using it.
+That much is read as a modification rather than as a false claim, and carries the
+lightest weight there is, because an honest machine can reach it: a policy may
+disable the newer interface, a driver may be excluded from it, and a device may
+support one backend without the other. What the reading establishes is that
+something between the two interfaces has been changed, which is a fact about the
+environment and not about the person using it.
 
-The request for a software fallback is never read. A machine with real hardware
-ordinarily has no software backend to offer, so an absent fallback is an ordinary
-answer; only the three requests that ask for a device are compared. The reading
-abstains outside a secure context, where the newer interface is gated and its
-absence says nothing; when the browser does not expose it at all; when no device
-was named for it to disagree with; and when the device named draws in software,
-because an environment already rasterising on the processor is not contradicted
-by having no hardware adapter.
+The request for a software fallback is read last, and only once the three
+requests that ask for a device have come back empty. An environment granted that
+fallback was never short of a device to grant: the backend it received is proof
+the interface reaches the machine, so the refusals before it were a choice about
+what to disclose. That pairing carries the heaviest weight here, because no
+policy, driver or device configuration produces it — a disabled interface grants
+nothing, and a working one does not refuse its own hardware and then answer.
+
+The reading abstains outside a secure context, where the newer interface is
+gated; when the browser does not expose it at all; when no device was named for
+it to disagree with; and when the device named draws in software.
 
 ## A device against its own decoders
 
 One reading is worth describing on its own, because it shows what the `Verified`
 flag is for.
 
-A graphics device names a generation, and a generation carries a documented set of
-hardware video decoders. So an environment that names a device, demonstrates a
-working hardware decoder for one codec, and reports no hardware decoder for
-another codec that its own generation carries, has stated three things that cannot
-all describe one machine. The control codec is what makes this a reading rather
-than a complaint about a missing feature: an environment with no hardware decoder
-at all is not being read as missing one decoder in particular, and abstains.
+A graphics device names a generation, and a generation carries a documented set
+of hardware video decoders. An environment that names a device, demonstrates a
+working hardware decoder for one codec, and reports none for another codec its
+own generation carries has stated three things that cannot all describe one
+machine. The control codec is what makes this a reading rather than a complaint
+about a missing feature: an environment with no hardware decoder at all abstains.
 
-The reading abstains in every other direction too. A payload that names no device,
-a device outside the table, a codec this build cannot decode by any path, a
-generation the table does not record as carrying the decoder, a reading the
-collector did not report — each of those carries no weight, and none of them
-lowers the proportion of readings that reached a determination, so adding this
-reading cannot change what an older payload scores.
+It abstains in every other direction too — no device named, a device outside the
+table, a codec this build cannot decode by any path, a generation the table does
+not record as carrying the decoder, a reading the collector did not report.
 
-And it abstains on any generation whose table entry is not `Verified`. Documented
-capability is not the same as observed capability: hardware decoding of a codec can
-be unavailable on a real machine for reasons that belong to the driver or the
-platform rather than the device. So an entry becomes evidence only once the
-project has watched a real system of that configuration report the decoder, and
-the entry records which system that was. Today one generation meets that bar. The
-others are tabulated, sourced, and read as `Unverified` until someone observes
-them.
+And it abstains on any generation whose entry is not `Verified`. Documented
+capability is not observed capability: hardware decoding can be unavailable on a
+real machine for reasons belonging to the driver or the platform rather than the
+device. An entry becomes evidence only once this project has watched a real
+system of that configuration report the decoder, and records which system that
+was. Today one generation meets that bar; the others are tabulated, sourced, and
+read as `Unverified`.
 
 ## Building and testing
 
