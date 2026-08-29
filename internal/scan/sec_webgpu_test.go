@@ -138,3 +138,27 @@ func TestWebGPUIsOneOfTheSectionsAnalyzeBuilds(t *testing.T) {
 		t.Fatal("the reading is not registered in the section order, so no scan runs it")
 	}
 }
+
+const adapterOnlyFallbackGranted = `{"present":true,"secureContext":true,"variants":{
+	"default":{"adapter":false},
+	"highPerformance":{"adapter":false},
+	"lowPower":{"adapter":false},
+	"fallback":{"adapter":true,"vendor":"","architecture":"","maxTextureDimension2D":16384}}}`
+
+func TestWebGPUContradictsWhenEveryHardwarePathIsRefusedAndTheFallbackIsGranted(t *testing.T) {
+	got := sectionWebGPU(webgpuRequest(t, adapterOnlyFallbackGranted, hardwareRenderer), Inputs{}, claim{})
+	if got.Determination != Contradiction {
+		t.Fatalf("determination = %q, want %q: an interface that grants its own software backend was never short of a device to grant", got.Determination, Contradiction)
+	}
+}
+
+func TestWebGPUStaysAModificationWhenTheFallbackPathWasNotReported(t *testing.T) {
+	body := `{"present":true,"secureContext":true,"variants":{
+		"default":{"adapter":false},
+		"highPerformance":{"adapter":false},
+		"lowPower":{"adapter":false}}}`
+	got := sectionWebGPU(webgpuRequest(t, body, hardwareRenderer), Inputs{}, claim{})
+	if got.Determination != Instrumented {
+		t.Fatalf("determination = %q, want %q: without the fallback answer there is no second fact to contradict the first", got.Determination, Instrumented)
+	}
+}

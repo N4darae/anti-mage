@@ -2,12 +2,21 @@ package scan
 
 import "strconv"
 
+func stackTraceLimitStripped(raw any) (stripped, known bool) {
+	kind, haveKind := str(raw, "captureStackTraceType")
+	if !haveKind || kind != "function" {
+		return false, false
+	}
+	_, isNumber := num(raw, "stackTraceLimit")
+	return !isNumber, true
+}
+
 func sectionAutomation(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Inconclusive}
 
 	raw, ok := r.value("auto.residue")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "automation residue", Value: "not collected", Note: "the collector did not report it"})
+		s.Rows = append(s.Rows, Row{Label: "automation residue", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 
@@ -24,44 +33,53 @@ func sectionAutomation(r Request, _ Inputs, _ claim) Section {
 
 	if haveFlag {
 		v := "false"
-		note := "the browser does not declare itself under remote control"
 		if flag {
 			v = "true"
-			note = "the browser declares itself under remote control, which is what this member is defined to report"
 		}
-		s.Rows = append(s.Rows, Row{Label: "navigator.webdriver", Value: v, Note: note})
+		s.Rows = append(s.Rows, Row{Label: "navigator.webdriver", Value: v, Note: anomalyNote})
 	} else {
-		s.Rows = append(s.Rows, Row{Label: "navigator.webdriver", Value: "not reported", Note: "not read as evidence"})
+		s.Rows = append(s.Rows, Row{Label: "navigator.webdriver", Value: "not reported", Note: anomalyNote})
 	}
 	if haveNames {
 		s.Rows = append(s.Rows, Row{
 			Label: "global names defined only by a remote-control tool",
 			Value: strconv.Itoa(len(names)),
-			Note:  joinLimit(names, 6),
+			Note:  anomalyNote,
 		})
 	}
 
-	if !haveFlag && !haveNames {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing to read", Note: "no observation was reported"})
+	stripped, haveLimit := stackTraceLimitStripped(raw)
+	if haveLimit {
+		v := "present"
+		if stripped {
+			v = "removed"
+		}
+		s.Rows = append(s.Rows, Row{Label: "Error.stackTraceLimit", Value: v, Note: anomalyNote})
+	}
+
+	if !haveFlag && !haveNames && !haveLimit {
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing to read", Note: anomalyNote})
 		return s
 	}
 	if (haveFlag && flag) || len(names) > 0 {
-		s.Determination = Instrumented
-		what := "the browser declares itself under remote control"
-		if len(names) > 0 {
-			what = "a global name that only a remote-control tool defines is present"
-			if haveFlag && flag {
-				what = "the browser declares itself under remote control, and a global name that only a remote-control tool defines is present"
-			}
-		}
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this environment is being driven", Note: what})
+		s.Determination, s.weight = Instrumented, weightOnlyDeliberate
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this environment is being driven", Note: anomalyNote})
+		return s
+	}
+	if stripped {
+		s.Determination, s.weight = Instrumented, weightOnlyDeliberate
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "a member of the engine's own stack-trace interface has been removed",
+			Note:  anomalyNote,
+		})
 		return s
 	}
 	s.Determination = Consistent
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "no declaration of remote control and no driver-defined global name",
-		Note:  "this is the ordinary answer and is not by itself evidence of anything",
+		Note:  anomalyNote,
 	})
 	return s
 }

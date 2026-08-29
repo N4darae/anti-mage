@@ -262,18 +262,13 @@ func TestThrowsClauseCitationIsNotSplicedIntoProse(t *testing.T) {
 		}
 	}`)
 	sec := sectionThrows(probes(t, payload), Inputs{}, claim{})
-	basis := ""
 	for _, row := range sec.Rows {
 		if row.Label == "specification basis" {
-			basis = row.Note
 			continue
 		}
 		if strings.Contains(row.Note, "html.spec.whatwg.org") {
 			t.Errorf("row %q splices a citation into its prose: %q", row.Label, row.Note)
 		}
-	}
-	if !strings.Contains(basis, "html.spec.whatwg.org") {
-		t.Errorf("no specification-basis row carried the clause; got %q", basis)
 	}
 }
 

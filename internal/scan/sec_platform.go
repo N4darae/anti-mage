@@ -7,7 +7,7 @@ func sectionPlatform(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "main-thread facts",
 			Value: "not collected",
-			Note:  "the collector did not report this probe",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -15,21 +15,17 @@ func sectionPlatform(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "main-thread facts",
 			Value: "unsupported",
-			Note:  "the collector could not read them in this browser",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 
 	add := func(label, raw string, f osFamily) {
 		if raw == "" {
-			s.Rows = append(s.Rows, Row{Label: label, Value: "not exposed", Note: "not read as evidence"})
+			s.Rows = append(s.Rows, Row{Label: label, Value: "not exposed", Note: anomalyNote})
 			return
 		}
-		note := ""
-		if f == osUnknown {
-			note = "no operating-system family in this project's table matches this value"
-		}
-		s.Rows = append(s.Rows, Row{Label: label, Value: clip(raw, 200), Note: note})
+		s.Rows = append(s.Rows, Row{Label: label, Value: clip(raw, 200), Note: anomalyNote})
 	}
 	add("navigator.userAgent", c.UserAgent, c.uaFamily)
 	add("navigator.platform", c.NavPlatform, c.platFamily)
@@ -39,7 +35,7 @@ func sectionPlatform(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "operating system named",
 			Value: c.Family.String(),
-			Note:  "fewer than two surfaces named a recognised family, so nothing was compared",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -48,9 +44,7 @@ func sectionPlatform(r Request, _ Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "operating system named",
 			Value: "the surfaces name different operating systems",
-			Note: "navigator.userAgent names " + c.uaFamily.String() +
-				", navigator.platform names " + c.platFamily.String() +
-				", NavigatorUAData names " + c.uaDataFamily.String(),
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -58,7 +52,7 @@ func sectionPlatform(r Request, _ Inputs, c claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "operating system named",
 		Value: c.Family.String(),
-		Note:  "every readable surface names the same operating-system family",
+		Note:  anomalyNote,
 	})
 	return s
 }

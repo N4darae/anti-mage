@@ -8,7 +8,7 @@ func sectionViewport(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "screen and viewport",
 			Value: "not collected",
-			Note:  "this reading compares a viewport against the screen it is displayed on; without both it carries no weight either way",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -18,23 +18,23 @@ func sectionViewport(r Request, _ Inputs, _ claim) Section {
 	innerW, haveInnerW := num(geom, "innerWidth")
 	innerH, haveInnerH := num(geom, "innerHeight")
 
-	s.Rows = append(s.Rows, Row{Label: "screen, as reported", Value: dimension(screenW, haveScreenW, screenH, haveScreenH), Note: "the size of the output device this environment says it is displayed on"})
-	s.Rows = append(s.Rows, Row{Label: "viewport, as reported", Value: dimension(innerW, haveInnerW, innerH, haveInnerH), Note: "the size of the area this page was given to draw in"})
+	s.Rows = append(s.Rows, Row{Label: "screen, as reported", Value: dimension(screenW, haveScreenW, screenH, haveScreenH), Note: anomalyNote})
+	s.Rows = append(s.Rows, Row{Label: "viewport, as reported", Value: dimension(innerW, haveInnerW, innerH, haveInnerH), Note: anomalyNote})
 
 	if !haveScreenW || !haveScreenH || !haveInnerW || !haveInnerH {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the four numbers was not reported", Note: "nothing was compared, and this reading carries no weight"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the four numbers was not reported", Note: anomalyNote})
 		return s
 	}
 	if screenW <= 0 || screenH <= 0 || innerW <= 0 || innerH <= 0 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "a reported size was zero or negative", Note: "a screen or viewport of no size settles nothing"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "a reported size was zero or negative", Note: anomalyNote})
 		return s
 	}
 
 	offsetX, haveOffsetX := num(geom, "screenX")
 	offsetY, haveOffsetY := num(geom, "screenY")
 	if (haveOffsetX && offsetX < 0) || (haveOffsetY && offsetY < 0) {
-		s.Rows = append(s.Rows, Row{Label: "window offset", Value: offset(offsetX, haveOffsetX, offsetY, haveOffsetY), Note: "an offset before the origin places this window on a display other than the one measured, whose size this reading was not given"})
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the window is not positioned on the screen that was measured", Note: "nothing was compared"})
+		s.Rows = append(s.Rows, Row{Label: "window offset", Value: offset(offsetX, haveOffsetX, offsetY, haveOffsetY), Note: anomalyNote})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the window is not positioned on the screen that was measured", Note: anomalyNote})
 		return s
 	}
 
@@ -43,13 +43,13 @@ func sectionViewport(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the area this page was given is larger than the screen it is said to be displayed on",
-			Note:  "both are reported in the same units and scale together, so a viewport cannot exceed its own output device",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the viewport fits within the screen this environment claims", Note: ""})
+	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the viewport fits within the screen this environment claims", Note: anomalyNote})
 	return s
 }
 

@@ -1,9 +1,11 @@
 /* Report page styling.
-   The palette is defined once as custom properties on :root and redefined
-   under prefers-color-scheme: dark. Colour marks a determination only, and
+   The palette is defined once as custom properties on :root, and the page is
+   light whatever the system asks for. Colour marks a determination only, and
    never carries meaning on its own: every mark is also a word. */
 
 :root {
+  color-scheme: light;
+
   --bg: #ffffff;
   --bg-panel: #f6f7f9;
   --bg-inset: #eef0f3;
@@ -23,27 +25,6 @@
 
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11141a;
-    --bg-panel: #171b22;
-    --bg-inset: #1d222b;
-    --bg-stripe: #14181f;
-    --fg: #dde3ec;
-    --fg-muted: #939cab;
-    --fg-faint: #6d7684;
-    --rule: #2a3038;
-    --rule-strong: #3b434e;
-    --accent: #7fa8dd;
-
-    --det-coherent: #56c08a;
-    --det-discrepant: #d8a24a;
-    --det-instrumented: #e8776c;
-    --det-insufficient: #939cab;
-    --det-not-evaluated: #86aee2;
-  }
 }
 
 * {
@@ -368,10 +349,6 @@ input:focus-visible {
   border: 1px solid var(--rule);
 }
 
-.scroll.tall {
-  max-height: 58vh;
-}
-
 table {
   border-collapse: collapse;
   width: 100%;
@@ -492,52 +469,6 @@ td.prose {
   margin: 0;
 }
 
-/* ---- filter ---- */
-
-.filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin: 0 0 5px;
-  font-size: 12px;
-}
-
-.filter input[type="text"] {
-  font: 12px var(--mono);
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--rule-strong);
-  border-radius: 3px;
-  padding: 4px 6px;
-  width: 22ch;
-}
-
-.filter label {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  color: var(--fg-muted);
-}
-
-.filter .count {
-  font-family: var(--mono);
-  color: var(--fg-faint);
-}
-
-/* ---- payload ---- */
-
-pre.payload {
-  margin: 0;
-  padding: 8px;
-  font: 11px/1.45 var(--mono);
-  white-space: pre;
-  overflow: auto;
-  max-height: 50vh;
-  background: var(--bg-panel);
-  border: 1px solid var(--rule);
-}
-
 footer.foot {
   margin-top: 22px;
   padding-top: 8px;
@@ -563,13 +494,11 @@ footer.foot {
   }
 
   .toolbar,
-  .filter,
   .index {
     display: none;
   }
 
-  .scroll,
-  .scroll.tall {
+  .scroll {
     max-height: none;
     overflow: visible;
   }

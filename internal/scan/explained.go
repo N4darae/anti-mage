@@ -1,7 +1,5 @@
 package scan
 
-import "strings"
-
 const (
 	keyMeasureText       = "CanvasRenderingContext2D.prototype.measureText"
 	keyGetChannelData    = "AudioBuffer.prototype.getChannelData"
@@ -23,6 +21,8 @@ var mappedAccessorKeys = []string{
 
 type explanation struct {
 	modified []string
+
+	structural string
 }
 
 func explainedBy(c claim, keys ...string) explanation {
@@ -35,26 +35,11 @@ func explainedBy(c claim, keys ...string) explanation {
 	return e
 }
 
-func (e explanation) downgrades() bool { return len(e.modified) > 0 }
-
-func (e explanation) note() string {
-	if !e.downgrades() {
-		return ""
-	}
-	return "this reading arrived through " + strings.Join(e.modified, " and ") +
-		", which this environment itself reports is not a built-in, so the disagreement is explained by a modification the environment declares rather than counted against it a second time"
+func explainedStructurally(note string) explanation {
+	return explanation{structural: note}
 }
 
-func (e explanation) annotate(note string) string {
-	n := e.note()
-	switch {
-	case n == "":
-		return note
-	case note == "":
-		return n
-	}
-	return note + "; " + n
-}
+func (e explanation) downgrades() bool { return len(e.modified) > 0 || e.structural != "" }
 
 type tally struct {
 	applied int
@@ -90,14 +75,4 @@ func (t tally) determination() Determination {
 		return Instrumented
 	}
 	return Consistent
-}
-
-const explainedConclusion = "every disagreement found reads its evidence through an accessor this environment reports as not a built-in, so this section reports the environment as modified rather than counting a disagreement the environment has already explained"
-
-func partlyExplainedNote(explained int) string {
-	if explained == 0 {
-		return ""
-	}
-	return " A further " + itoa(float64(explained)) +
-		" did not hold but read their evidence through an accessor this environment reports as not a built-in, and are not part of this conclusion; the rest are explained by nothing this environment declared."
 }

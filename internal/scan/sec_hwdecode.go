@@ -21,31 +21,31 @@ func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "graphics device, as reported",
 			Value: "not collected",
-			Note:  "this reading compares a tabulated device against the decoders reported for it; a payload that names no device leaves it nothing to apply to, so it carries no weight either way",
+			Note:  anomalyNote,
 		})
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "graphics device, as reported", Value: clip(renderer, 90), Note: "the unmasked renderer string, which names the device this environment claims"})
+	s.Rows = append(s.Rows, Row{Label: "graphics device, as reported", Value: clip(renderer, 90), Note: anomalyNote})
 
-	series, entry, placed := hwDecodeEntry(renderer)
+	_, entry, placed := hwDecodeEntry(renderer)
 	if !placed {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this project's table does not place the reported device", Note: "no decoder capability follows from a device this project has not tabulated, so this reading carries no weight for it"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this project's table does not place the reported device", Note: anomalyNote})
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "device generation", Value: entry.Family, Note: "read from the " + series + " series in this project's table"})
+	s.Rows = append(s.Rows, Row{Label: "device generation", Value: entry.Family, Note: anomalyNote})
 
 	if !entry.Verified {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the table entry for this generation has not been confirmed on a real system of that configuration",
-			Note:  "its documented capability is not read as evidence until it has been observed; source: " + clip(entry.Source.Origin, 120),
+			Note:  anomalyNote,
 		})
 		return s
 	}
 
 	matrix, ok := r.value("media.matrix")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the media capability matrix was not collected", Note: "nothing was compared"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the media capability matrix was not collected", Note: anomalyNote})
 		return s
 	}
 
@@ -53,24 +53,24 @@ func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
 	subjectSupported, haveSupport := boolean(matrix, hwDecodeSubject, "decodingInfoSupported")
 	subjectEfficient, haveSubject := boolean(matrix, hwDecodeSubject, "powerEfficient")
 
-	s.Rows = append(s.Rows, Row{Label: "a widely implemented codec, decoded in hardware", Value: answerOrAbsent(controlEfficient, haveControl), Note: "the control: it shows whether this environment has a working hardware decoder at all"})
-	s.Rows = append(s.Rows, Row{Label: "the tabulated codec, decodable", Value: answerOrAbsent(subjectSupported, haveSupport), Note: "whether this build can decode it by any path"})
-	s.Rows = append(s.Rows, Row{Label: "the tabulated codec, decoded in hardware", Value: answerOrAbsent(subjectEfficient, haveSubject), Note: "the reading this generation's tabulated decoder is compared against"})
+	s.Rows = append(s.Rows, Row{Label: "a widely implemented codec, decoded in hardware", Value: answerOrAbsent(controlEfficient, haveControl), Note: anomalyNote})
+	s.Rows = append(s.Rows, Row{Label: "the tabulated codec, decodable", Value: answerOrAbsent(subjectSupported, haveSupport), Note: anomalyNote})
+	s.Rows = append(s.Rows, Row{Label: "the tabulated codec, decoded in hardware", Value: answerOrAbsent(subjectEfficient, haveSubject), Note: anomalyNote})
 
 	if !haveControl || !haveSupport || !haveSubject {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the three readings was not reported", Note: "nothing was compared"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the three readings was not reported", Note: anomalyNote})
 		return s
 	}
 	if !controlEfficient {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no codec was decoded in hardware here", Note: "an environment with no working hardware decoder cannot be read as missing one decoder in particular"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no codec was decoded in hardware here", Note: anomalyNote})
 		return s
 	}
 	if !subjectSupported {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this build cannot decode the tabulated codec at all", Note: "a codec a build does not carry is a fact about the build, never a mark against it"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this build cannot decode the tabulated codec at all", Note: anomalyNote})
 		return s
 	}
 	if !entry.AV1Decode {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this generation is not tabulated as carrying the decoder", Note: "there is nothing for the reported answer to contradict"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this generation is not tabulated as carrying the decoder", Note: anomalyNote})
 		return s
 	}
 	if !subjectEfficient {
@@ -78,13 +78,13 @@ func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "this environment decodes one codec in hardware and reports no hardware decoder for another that the generation it names carries",
-			Note:  "the device named, the working hardware decoder, and the missing one cannot all describe one machine",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the decoders reported are the ones the generation this device names carries", Note: ""})
+	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the decoders reported are the ones the generation this device names carries", Note: anomalyNote})
 	return s
 }
 

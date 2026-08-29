@@ -5,11 +5,6 @@
   var state = { payload: null, assessment: null, serverError: null };
   var uidCounter = 0;
 
-  function uid() {
-    uidCounter += 1;
-    return "am-" + uidCounter;
-  }
-
   function h(tag, attrs) {
     var e = document.createElement(tag);
     if (attrs) {
@@ -71,8 +66,7 @@
     return h("div", { class: "scroll" }, h("table", { class: "kv" }, tb));
   }
 
-  function dataTable(headers, rows, opts) {
-    opts = opts || {};
+  function dataTable(headers, rows) {
     var tr = h("tr");
     headers.forEach(function (hd) {
       tr.appendChild(h("th", { text: typeof hd === "string" ? hd : hd.label }));
@@ -92,42 +86,7 @@
       });
       tb.appendChild(row);
     });
-    var tall = opts.tall || rows.length > 28;
-    return h("div", { class: "scroll" + (tall ? " tall" : "") }, h("table", null, h("thead", null, tr), tb));
-  }
-
-  function withFilter(container, label, toggleLabel) {
-    var table = container.querySelector("table");
-    if (!table || !table.tBodies.length) return container;
-    var rows = Array.prototype.slice.call(table.tBodies[0].rows);
-    var input = h("input", { type: "text", placeholder: "filter", "aria-label": "filter " + label });
-    var count = h("span", { class: "count" });
-    var toggle = null;
-    var toggleId = uid();
-    var bar = h("div", { class: "filter" }, input);
-    if (toggleLabel) {
-      toggle = h("input", { type: "checkbox", id: toggleId });
-      bar.appendChild(h("label", { for: toggleId }, toggle, toggleLabel));
-    }
-    bar.appendChild(count);
-
-    function apply() {
-      var q = input.value.toLowerCase();
-      var onlyFlag = toggle && toggle.checked;
-      var shown = 0;
-      rows.forEach(function (row) {
-        var ok = true;
-        if (onlyFlag && row.getAttribute("data-flag") !== "1") ok = false;
-        if (ok && q && row.textContent.toLowerCase().indexOf(q) < 0) ok = false;
-        row.style.display = ok ? "" : "none";
-        if (ok) shown += 1;
-      });
-      count.textContent = shown + " of " + rows.length + " rows";
-    }
-    input.addEventListener("input", apply);
-    if (toggle) toggle.addEventListener("change", apply);
-    apply();
-    return h("div", null, bar, container);
+    return h("div", { class: "scroll" }, h("table", null, h("thead", null, tr), tb));
   }
 
   function block(title, nodes, prose) {
@@ -164,10 +123,6 @@
     var p = probe(id);
     return p && p.value && p.value.reason ? p.value.reason : null;
   }
-  function praw(id) {
-    var p = probe(id);
-    return p && Object.prototype.hasOwnProperty.call(p, "value") ? p.value : null;
-  }
   function pmeta(name) {
     var m = state.payload && state.payload.meta;
     return m && m[name] ? m[name] : null;
@@ -182,26 +137,6 @@
       );
     });
     return strip;
-  }
-
-  function sortedNames(obj, order) {
-    var out = [];
-    var seen = {};
-    (order || []).forEach(function (k) {
-      if (Object.prototype.hasOwnProperty.call(obj, k)) {
-        out.push(k);
-        seen[k] = 1;
-      }
-    });
-    Object.keys(obj)
-      .filter(function (k) {
-        return !seen[k];
-      })
-      .sort()
-      .forEach(function (k) {
-        out.push(k);
-      });
-    return out;
   }
 
   function renderPlatform() {
@@ -223,380 +158,9 @@
           ["navigator.webdriver", m.webdriver],
           ["isSecureContext", m.isSecureContext],
           ["location.origin", m.origin]
-        ]),
-        "These are the surfaces on which a browser names its operating system. Every other section reads its observations against this claim rather than against a claim of its own."
+        ])
       )
     ];
-  }
-
-  function renderFont() {
-    var out = [];
-    var fam = pv("font.resolved");
-    var fmeta = pmeta("font");
-    if (!fam) out.push(absentBlock("Width probe", "font.resolved"));
-    else {
-      var names = Object.keys(fam);
-      var resolvedCount = names.filter(function (n) {
-        return fam[n] && fam[n].width;
-      }).length;
-      out.push(
-        block(
-          "width probe",
-          kvTable([
-            ["candidate families", fmeta ? fmeta.probed : names.length],
-            ["families resolved", resolvedCount],
-            ["probe string", fmeta ? fmeta.measureString : null],
-            ["generic families compared", fmeta ? fmeta.bases : null],
-            ["candidate list from", fmeta ? fmeta.inputSource : null],
-            [
-              "probe inputs",
-              fmeta && fmeta.inputSources
-                ? Object.keys(fmeta.inputSources)
-                    .map(function (k) {
-                      return k + ": " + fmeta.inputSources[k];
-                    })
-                    .join("   ")
-                : null
-            ]
-          ]),
-          "A family counts as resolved when text set in it measures a different advance width from the same text set in a generic family alone. The comparison runs against all three CSS generic families, because a family whose metrics match one generic still differs from the other two."
-        )
-      );
-    }
-
-    var ctrl = pv("font.controls");
-    var cmeta = pmeta("fontControls");
-    if (!ctrl) out.push(absentBlock("Control names", "font.controls"));
-    else {
-      var cnames = sortedNames(ctrl, cmeta ? cmeta.order : null);
-      var resolvedControls = cnames.filter(function (n) {
-        return ctrl[n] && ctrl[n].width;
-      });
-      var checkTrue = cnames.filter(function (n) {
-        return ctrl[n] && ctrl[n].check === true;
-      });
-      var checkSeen = cnames.some(function (n) {
-        return ctrl[n] && ctrl[n].check !== null && ctrl[n].check !== undefined;
-      });
-      out.push(
-        block(
-          "control names",
-          [
-            kvTable([
-              ["control names probed", cnames.length],
-              ["resolved by width probe", resolvedControls.length, resolvedControls.length ? "v-flag" : ""],
-              ["names resolved", resolvedControls.length ? resolvedControls : null],
-              ["document.fonts.check() answered", checkSeen],
-              ["names it answered true for", checkSeen ? checkTrue.length : null],
-              ["control list from", cmeta ? cmeta.inputSource : null]
-            ]),
-            dataTable(
-              ["control name", "width probe resolved", "document.fonts.check()"],
-              cnames.map(function (n) {
-                return { cells: [n, { v: ctrl[n].width, cls: ctrl[n].width ? "v-flag" : "" }, ctrl[n].check], flag: !!ctrl[n].width };
-              })
-            )
-          ],
-          "These names are invented, so no font by any of them is installed. They are carried through every font probe as its control. document.fonts.check() answers true for a name that does not exist, so its answer is recorded beside each width result and is not read as a result on its own."
-        )
-      );
-    }
-
-    var cov = pv("font.coverage");
-    var covmeta = pmeta("fontCoverage");
-    if (!cov) out.push(absentBlock("Script coverage", "font.coverage"));
-    else {
-      var covNames = sortedNames(cov, covmeta ? covmeta.order : null);
-      out.push(
-        block(
-          "script coverage",
-          dataTable(
-            [
-              "family",
-              "codepoints asked for",
-              "resolves for its own script",
-              "resolves for Latin text",
-              "the two agree",
-              { label: "documented scripts", cls: "prose" }
-            ],
-            covNames.map(function (n) {
-              var r = cov[n];
-              return {
-                cells: [n, r.codepoints, { v: r.covers }, { v: r.width }, { v: r.agree, cls: r.agree ? "" : "v-flag" }, { v: r.scripts, cls: "prose" }],
-                flag: !r.agree
-              };
-            })
-          ),
-          "Each family is asked for codepoints from a script its vendor documents it as carrying. A width probe run on Latin text cannot see a font that draws only icons, or only one non-Latin script, so the two measurements are reported side by side."
-        )
-      );
-    }
-
-    if (fam) {
-      out.push(
-        block(
-          "families, one row each",
-          withFilter(
-            dataTable(
-              ["family", "width probe resolved", "document.fonts.check()"],
-              Object.keys(fam)
-                .sort()
-                .map(function (n) {
-                  return { cells: [n, { v: fam[n].width }, fam[n].check], flag: !!fam[n].width };
-                }),
-              { tall: true }
-            ),
-            "families",
-            "resolved only"
-          )
-        )
-      );
-    }
-    return out;
-  }
-
-  function renderNative() {
-    var ts = pv("native.tostring");
-    var ok = pv("native.ownkeys");
-    var ds = pv("native.descriptor");
-    var rc = pv("native.receiver");
-    var nmeta = pmeta("native");
-    if (!ts && !ok && !ds && !rc) return [absentBlock("Interface members", "native.tostring")];
-    var out = [];
-
-    var order = (nmeta && nmeta.order) || [];
-    var keySet = {};
-    [ts, ok, ds, rc].forEach(function (v) {
-      if (!v) return;
-      Object.keys(v).forEach(function (k) {
-        keySet[k] = 1;
-      });
-    });
-    var keys = sortedNames(keySet, order);
-
-    var rows = keys.map(function (k) {
-      var d = (ds && ds[k]) || null;
-      var r = (rc && rc[k]) || null;
-      var s = (ts && ts[k]) || null;
-      var o = (ok && ok[k]) || null;
-      var receiverText = null;
-      var receiverFlag = "";
-      if (r && !r.skipped && r.threw !== undefined) {
-        if (r.threw) {
-          receiverText = r.isTypeError ? "TypeError" : r.name || "threw";
-          receiverFlag = r.isTypeError ? "" : "v-flag";
-        } else {
-          receiverText = "returned " + r.resultType;
-          receiverFlag = "v-flag";
-        }
-      }
-      var notes = [];
-      [s, o, d, r].forEach(function (x) {
-        if (x && x.reason && notes.indexOf(x.reason) < 0) notes.push(x.reason);
-      });
-      var onProto = d && d.onPrototype !== undefined ? d.onPrototype : null;
-      var kindOK = d && d.kindAsExpected !== undefined ? d.kindAsExpected : null;
-      var flagged =
-        onProto === false ||
-        kindOK === false ||
-        (d && d.shadowedOnInstance === true) ||
-        (s && s.native === false) ||
-        (o && o.agree === false) ||
-        receiverFlag === "v-flag";
-      return {
-        cells: [
-          k,
-          (d && d.declaredAs) || null,
-          { v: onProto, cls: onProto === false ? "v-flag" : "" },
-          { v: d ? d.kind || null : null, cls: kindOK === false ? "v-flag" : "" },
-          { v: d ? (d.shadowedOnInstance === undefined ? null : d.shadowedOnInstance) : null, cls: d && d.shadowedOnInstance === true ? "v-flag" : "" },
-          { v: s ? (s.native === undefined ? null : s.native) : null, cls: s && s.native === false ? "v-flag" : "" },
-          { v: o ? (o.agree === undefined ? null : o.agree) : null, cls: o && o.agree === false ? "v-flag" : "" },
-          { v: receiverText, cls: receiverFlag },
-          { v: notes.length ? notes.join("; ") : null, cls: "prose" }
-        ],
-        flag: !!flagged
-      };
-    });
-
-    out.push(
-      block(
-        "members, read four ways",
-        dataTable(
-          [
-            "member",
-            "declared as",
-            "on the interface prototype",
-            "descriptor kind",
-            "shadowed on the instance",
-            "toString ends in [native code]",
-            "three key enumerators agree",
-            "alien receiver",
-            { label: "note", cls: "prose" }
-          ],
-          rows
-        ),
-        "WebIDL puts an interface member on the interface prototype object: an attribute as an accessor, an operation as a data property, and either one behind a brand check that makes an alien receiver a TypeError. Each member below is read against those four requirements. A member this browser does not have contributes no answer."
-      )
-    );
-
-    if (ts) {
-      out.push(
-        block(
-          "Function.prototype.toString output",
-          dataTable(
-            ["member", "name", { label: "length", cls: "num" }, { label: "chars", cls: "num" }, "own toString agrees", "source text"],
-            keys
-              .filter(function (k) {
-                return ts[k];
-              })
-              .map(function (k) {
-                var s = ts[k];
-                return {
-                  cells: [
-                    k,
-                    { v: s.fnName === undefined ? null : s.fnName },
-                    { v: s.fnLength === undefined ? null : s.fnLength, cls: "num" },
-                    { v: s.chars === undefined ? null : s.chars, cls: "num" },
-                    { v: s.selfAgrees === undefined ? null : s.selfAgrees, cls: s.selfAgrees === false ? "v-flag" : "" },
-                    { v: s.source === undefined ? s.reason || null : s.source, cls: "wide" }
-                  ],
-                  flag: s.native === false
-                };
-              })
-          ),
-          "ECMA-262 requires the string returned for a built-in function to be a NativeFunction. The function's own toString is read as well, so a member whose two answers differ is visible as such."
-        )
-      );
-    }
-
-    var g = nmeta && nmeta.globals;
-    if (g) {
-      out.push(
-        block(
-          "the reader itself",
-          kvTable([
-            ["Function.prototype.toString, described by itself", g.toStringOfToString],
-            ["its own keys", g.toStringOwnKeys],
-            ["its descriptor on Function.prototype", g.toStringDescriptor ? JSON.stringify(g.toStringDescriptor) : null]
-          ]),
-          "Every toString result above was produced by this function, so the function is described by itself first."
-        )
-      );
-    }
-
-    if (ok) {
-      var keyRows = keys
-        .filter(function (k) {
-          return ok[k] && ok[k].ownKeys;
-        })
-        .map(function (k) {
-          var o = ok[k];
-          return {
-            cells: [k, { v: o.ownKeys }, { v: o.getOwnPropertyNames }, { v: o.descriptors }, { v: o.symbolKeys }, { v: o.agree, cls: o.agree === false ? "v-flag" : "" }],
-            flag: o.agree === false
-          };
-        });
-      if (keyRows.length) {
-        out.push(
-          block(
-            "own keys, by three enumerators",
-            dataTable(
-              ["member", "Reflect.ownKeys, string keys", "Object.getOwnPropertyNames", "Object.getOwnPropertyDescriptors", "symbol keys", "agree"],
-              keyRows
-            ),
-            "The three enumerators walk the same own-property list by three different routes. Symbol keys are listed on their own, because only the first enumerator returns them."
-          )
-        );
-      }
-    }
-    return out;
-  }
-
-  var SCOPE_COLUMNS = [
-    ["scope.main", "main window", "main"],
-    ["scope.worker", "dedicated worker", "worker"],
-    ["scope.iframe", "same-origin frame", "iframe"]
-  ];
-
-  var SCOPE_FACTS = [
-    "scope",
-    "userAgent",
-    "platform",
-    "hardwareConcurrency",
-    "deviceMemoryPresent",
-    "deviceMemory",
-    "language",
-    "languages",
-    "webdriver",
-    "uaDataPlatform",
-    "uaDataMobile",
-    "timeZone",
-    "locale",
-    "calendar",
-    "timezoneOffsetMinutes",
-    "isSecureContext",
-    "origin",
-    "hasWindow"
-  ];
-
-  var SCOPE_DEFINING = { scope: 1, hasWindow: 1, origin: 1, isSecureContext: 1, deviceMemory: 1, deviceMemoryPresent: 1, uaDataPlatform: 1, uaDataMobile: 1 };
-
-  function renderScope() {
-    var out = [];
-    var avail = pv("scope.availability");
-    var values = SCOPE_COLUMNS.map(function (c) {
-      return pv(c[0]);
-    });
-    if (!values.some(Boolean)) return [absentBlock("Execution scopes", "scope.main")];
-
-    var rows = SCOPE_FACTS.map(function (fact) {
-      var cells = [fact];
-      var seen = [];
-      values.forEach(function (v) {
-        var val = v ? (fact in v ? v[fact] : null) : null;
-        cells.push({ v: val });
-        if (v) seen.push(JSON.stringify(val));
-      });
-      var agree = null;
-      if (!SCOPE_DEFINING[fact] && seen.length > 1) {
-        agree = seen.every(function (x) {
-          return x === seen[0];
-        });
-      }
-      cells.push({ v: agree, cls: agree === false ? "v-flag" : "" });
-      return { cells: cells, flag: agree === false };
-    });
-
-    var headers = ["fact"];
-    SCOPE_COLUMNS.forEach(function (c, i) {
-      headers.push(c[1] + (values[i] ? "" : " (" + pstatus(c[0]) + ")"));
-    });
-    headers.push("agree");
-
-    out.push(
-      block(
-        "the same question in three scopes",
-        dataTable(headers, rows),
-        "One function is read in three realms. The window and the frame are read through the frame's own global object; the worker receives that same function's source text. A scope that could not be created reports its status in the column heading and contributes no value. Facts gated on a scope's own origin, and facts that say which scope is being read, are shown without an agreement column because an honest browser answers them differently in each."
-      )
-    );
-
-    if (avail) {
-      out.push(
-        block(
-          "scope availability",
-          dataTable(
-            ["scope", "created", "status", { label: "reason", cls: "prose" }],
-            Object.keys(avail).map(function (k) {
-              return [k, { v: avail[k].created }, avail[k].status, { v: avail[k].reason, cls: "prose" }];
-            })
-          ),
-          "A content policy on the page, or a browser that does not offer the scope, lands here. That is a property of how the page was delivered."
-        )
-      );
-    }
-    return out;
   }
 
   function renderGeom() {
@@ -657,8 +221,7 @@
             ["forced-colors", c.forcedColors],
             ["display-mode", c.displayMode],
             ["scripting", c.scripting]
-          ]),
-          "Range media features are narrowed by bisection over min- queries. A feature that matches across the whole search range, or across none of it, has located no value and is reported as having located none."
+          ])
         )
       );
     }
@@ -685,8 +248,7 @@
             pairs.map(function (p) {
               return { cells: [p[0], { v: p[1], cls: "num" }, { v: p[2], cls: "num" }, { v: p[3], cls: p[3] === false ? "v-flag" : "" }], flag: p[3] === false };
             })
-          ),
-          "The CSS column comes from the narrowing above, so each row is one quantity asked for through two interfaces."
+          )
         )
       );
     }
@@ -726,89 +288,13 @@
       out.push(
         block(
           "offsets across dates",
-          [
-            kvTable([
-              ["dates supplied by", ometa ? ometa.datesFrom : null],
-              ["zone they were read in", ometa ? ometa.timeZone : null],
-              ["dates sampled", o.length],
-              ["dates that did not parse", ometa ? ometa.unparsedCount : null],
-              ["distinct offsets seen, in minutes", ometa ? ometa.distinctOffsets : null]
-            ]),
-            dataTable(
-              ["date", "instant sampled", { label: "getTimezoneOffset(), minutes", cls: "num" }, "long offset for the named zone", "Date.prototype.toString()"],
-              o.map(function (r) {
-                return [r.date, r.instant, { v: r.offsetMinutes, cls: "num" }, r.longOffset, { v: r.localString, cls: "wide" }];
-              })
-            )
-          ],
-          "The dates come from the server with the page, so the set asked about is not fixed in this script. A bare calendar date is sampled at noon UTC. Each date is read twice: once through the browser's own offset arithmetic, and once through the formatter for the zone the browser names."
-        )
-      );
-    }
-    return out;
-  }
-
-  var RECORDER_PREFIX = "MediaRecorder ";
-  var FACILITY_KEY = "interfaces available";
-
-  function renderMedia() {
-    var m = pv("media.matrix");
-    if (!m) return [absentBlock("Codec matrix", "media.matrix")];
-    var mmeta = pmeta("media");
-    var out = [];
-    var fac = m[FACILITY_KEY] || (mmeta && mmeta.facilities) || null;
-    if (fac) {
-      out.push(
-        block(
-          "interfaces available",
           kvTable([
-            ["HTMLMediaElement.canPlayType", fac.canPlayType],
-            ["MediaSource.isTypeSupported", fac.mediaSource],
-            ["MediaRecorder.isTypeSupported", fac.mediaRecorder],
-            ["MediaCapabilities.decodingInfo", fac.mediaCapabilities]
+            ["dates supplied by", ometa ? ometa.datesFrom : null],
+            ["zone they were read in", ometa ? ometa.timeZone : null],
+            ["dates sampled", o.length],
+            ["dates that did not parse", ometa ? ometa.unparsedCount : null],
+            ["distinct offsets seen, in minutes", ometa ? ometa.distinctOffsets : null]
           ])
-        )
-      );
-    }
-    var codecKeys = sortedNames(m, mmeta ? mmeta.codecOrder : null).filter(function (k) {
-      return k !== FACILITY_KEY && k.indexOf(RECORDER_PREFIX) !== 0;
-    });
-    out.push(
-      block(
-        "one codec per row, three interfaces per codec",
-        dataTable(
-          ["codec", "content type", "canPlayType", "MediaSource", "decodingInfo supported", "smooth", "power efficient"],
-          codecKeys.map(function (k) {
-            var r = m[k] || {};
-            return [
-              k,
-              { v: r.contentType === undefined ? null : r.contentType, cls: "wide" },
-              { v: r.canPlayType === undefined ? null : r.canPlayType },
-              { v: r.mediaSource === undefined ? null : r.mediaSource },
-              { v: r.decodingInfoError !== undefined ? r.decodingInfoError : r.decodingInfoSupported === undefined ? null : r.decodingInfoSupported },
-              { v: r.smooth === undefined ? null : r.smooth },
-              { v: r.powerEfficient === undefined ? null : r.powerEfficient }
-            ];
-          })
-        ),
-        "The three interfaces answer for the same content type, and a build that carries a decoder answers for it consistently across them."
-      )
-    );
-    var recKeys = Object.keys(m)
-      .filter(function (k) {
-        return k.indexOf(RECORDER_PREFIX) === 0;
-      })
-      .sort();
-    if (recKeys.length) {
-      out.push(
-        block(
-          "MediaRecorder",
-          dataTable(
-            ["content type", "isTypeSupported"],
-            recKeys.map(function (k) {
-              return [{ v: k.slice(RECORDER_PREFIX.length), cls: "wide" }, { v: m[k].isTypeSupported }];
-            })
-          )
         )
       );
     }
@@ -830,54 +316,35 @@
           ["descriptor kind", wd.kind || null],
           ["configurable", wd.configurable === undefined ? null : wd.configurable],
           ["getter ends in [native code]", wd.getterNative === undefined ? null : wd.getterNative, wd.getterNative === false ? "v-flag" : ""]
-        ]),
-        "The HTML standard defines navigator.webdriver as the browser's own statement about whether it is under remote control. A browser with no such member reports no value here."
+        ])
       )
     );
 
-    function stackRow(label, s) {
-      if (!s) return [label, { v: null }, { v: null }, { v: null }, { v: null }, { v: null }];
-      return [
-        label,
-        { v: s.present },
-        { v: s.name === undefined ? null : s.name },
-        { v: s.frameCount === undefined ? null : s.frameCount, cls: "num" },
-        { v: s.framesWellFormed === undefined ? null : s.framesWellFormed, cls: s.framesWellFormed === false ? "v-flag" : "" },
-        { v: s.firstLine === undefined ? null : s.firstLine, cls: "wide" }
-      ];
+    function stackShape(s) {
+      if (!s) return null;
+      return [s.present ? "a string" : "not a string", s.name || "no name", (s.frameCount === undefined ? "?" : s.frameCount) + " frames", s.framesWellFormed === false ? "a frame line is malformed" : "every frame line well formed"].join(", ");
     }
-    out.push(
-      block(
-        "error stack shape",
-        [
-          dataTable(
-            ["thrown by", "stack is a string", "error name", { label: "frames", cls: "num" }, "every frame line well formed", "first line"],
-            [stackRow("a property read on null", a.errorStackNative), stackRow("a throw two calls deep", a.errorStackUser)]
-          ),
-          kvTable([
-            ["Error.prototype.stack descriptor", a.errorStackDescriptor ? JSON.stringify(a.errorStackDescriptor) : null],
-            ["typeof Error.captureStackTrace", a.captureStackTraceType],
-            ["typeof Error.prepareStackTrace", a.prepareStackTraceType],
-            ["Error.stackTraceLimit", a.stackTraceLimit]
-          ])
-        ],
-        "A stack is produced twice, once by the engine's own failure and once by a throw of this script's own, so the two forms can be read against each other."
-      )
-    );
-
     var hits = a.patternHits || [];
     out.push(
       block(
-        "global names matching an injected-hook shape",
-        hits.length
-          ? dataTable(
-              ["name", "shape matched"],
-              hits.map(function (x) {
-                return [{ v: x.name, cls: "v-flag" }, x.pattern];
-              })
-            )
-          : h("p", { class: "absent", text: "no name on window or document matched any of the shapes probed" }),
-        "The shapes probed describe how a name is formed rather than where it came from: a symbol whose suffix is a long random run, and the underscore-prefixed verb forms a host uses when it hangs a hook on a page."
+        "error stack shape",
+        kvTable([
+          ["stack of a property read on null", stackShape(a.errorStackNative), a.errorStackNative && a.errorStackNative.framesWellFormed === false ? "v-flag" : ""],
+          ["stack of a throw two calls deep", stackShape(a.errorStackUser), a.errorStackUser && a.errorStackUser.framesWellFormed === false ? "v-flag" : ""],
+          ["Error.prototype.stack descriptor", a.errorStackDescriptor ? JSON.stringify(a.errorStackDescriptor) : null],
+          ["typeof Error.captureStackTrace", a.captureStackTraceType],
+          ["typeof Error.prepareStackTrace", a.prepareStackTraceType],
+          ["Error.stackTraceLimit", a.stackTraceLimit],
+          [
+            "global names matching an injected-hook shape",
+            hits.length
+              ? hits.map(function (x) {
+                  return x.name;
+                })
+              : "none",
+            hits.length ? "v-flag" : ""
+          ]
+        ])
       )
     );
 
@@ -889,8 +356,7 @@
           ["own property names on window", a.windowKeyCount],
           ["own property names on document", a.documentKeyCount],
           ["globals whose name starts with _ or $", prefixed.length ? prefixed : null]
-        ]),
-        "An extension the reader installed on purpose puts names of that last shape on the page, so they are listed as an observation."
+        ])
       )
     );
     return out;
@@ -904,13 +370,26 @@
     out.push(
       block(
         "Permissions.query",
-        dataTable(
-          ["permission name", "state", { label: "note", cls: "prose" }],
-          states.map(function (r) {
-            return [r.name, r.state, { v: r.error, cls: "prose" }];
-          })
-        ),
-        "A name this browser does not recognise rejects the query. That is what the browser supports, and it is reported as the note on the row."
+        kvTable([
+          ["permission names queried", states.length],
+          [
+            "states returned",
+            states.length
+              ? Object.keys(
+                  states.reduce(function (acc, r) {
+                    acc[r.state || "no state"] = 1;
+                    return acc;
+                  }, {})
+                ).sort()
+              : null
+          ],
+          [
+            "names this browser did not recognise",
+            states.filter(function (r) {
+              return !!r.error;
+            }).length
+          ]
+        ])
       )
     );
     var n = p.notification || {};
@@ -927,100 +406,14 @@
           ["interface called", g.exercised],
           ["outcome", g.outcome],
           ["outcome matches the query", g.agree, g.agree === false ? "v-flag" : ""]
-        ]),
-        "The geolocation interface is called only where the query has already reported the permission denied, which is the one state in which the call is answered from that state alone: it raises no dialog, and it asks nothing off this machine."
+        ])
       )
     );
     return out;
   }
 
-  function claimedProbeIDs() {
-    var seen = {};
-    GROUPS.forEach(function (g) {
-      (g.probes || []).forEach(function (id) {
-        seen[id] = 1;
-      });
-    });
-    return seen;
-  }
-
-  function unclaimedProbeIDs() {
-    var p = state.payload;
-    if (!p) return [];
-    var claimed = claimedProbeIDs();
-    var all = Array.isArray(p.ids) && p.ids.length ? p.ids : Object.keys(p.probes || {});
-    var out = [];
-    all.forEach(function (id) {
-      if (!claimed[id] && out.indexOf(id) < 0) out.push(id);
-    });
-    out.sort();
-    return out;
-  }
-
-  function plainValue(v) {
-    var s;
-    try {
-      s = JSON.stringify(v, null, 2);
-    } catch (e) {
-      s = null;
-    }
-    if (typeof s !== "string") s = String(v);
-    if (s.length > 6000) s = s.slice(0, 6000) + "\n\u2026 " + (s.length - 6000) + " more characters, not shown";
-    return s;
-  }
-
-  function renderUnclaimed() {
-    var ids = unclaimedProbeIDs();
-    if (!ids.length) return null;
-    var out = [probeStrip(ids)];
-    ids.forEach(function (id) {
-      var reason = preason(id);
-      var v = praw(id);
-      out.push(
-        block(id, [
-          h("p", { class: "absent", text: "status: " + pstatus(id) + (reason ? " \u2014 " + reason : "") }),
-          v === null || v === undefined ? null : h("pre", { class: "payload", text: plainValue(v) })
-        ])
-      );
-    });
-    return out;
-  }
-
   var GROUPS = [
     { id: "platform", title: "Platform claim", probes: ["scope.main"], render: renderPlatform, scale: null },
-    {
-      id: "font",
-      title: "Fonts",
-      probes: ["font.resolved", "font.coverage", "font.controls"],
-      render: renderFont,
-      scale: function () {
-        var m = pmeta("font");
-        return m ? m.resolvedCount + " of " + m.probed + " families resolved" : null;
-      }
-    },
-    {
-      id: "native",
-      title: "Interface members",
-      probes: ["native.tostring", "native.ownkeys", "native.descriptor", "native.receiver"],
-      render: renderNative,
-      scale: function () {
-        var m = pmeta("native");
-        return m && m.order ? m.order.length + " members" : null;
-      }
-    },
-    {
-      id: "scope",
-      title: "Execution scopes",
-      probes: ["scope.main", "scope.worker", "scope.iframe", "scope.availability"],
-      render: renderScope,
-      scale: function () {
-        var n = 0;
-        SCOPE_COLUMNS.forEach(function (c) {
-          if (pv(c[0])) n += 1;
-        });
-        return n + " of " + SCOPE_COLUMNS.length + " scopes answered";
-      }
-    },
     { id: "geom", title: "Display geometry", probes: ["geom.screen", "geom.css"], render: renderGeom, scale: null },
     {
       id: "time",
@@ -1032,25 +425,14 @@
         return o && o.length ? o.length + " dates sampled" : null;
       }
     },
-    {
-      id: "media",
-      title: "Media capabilities",
-      probes: ["media.matrix"],
-      render: renderMedia,
-      scale: function () {
-        var m = pmeta("media");
-        return m && m.codecOrder ? m.codecOrder.length + " codecs" : null;
-      }
-    },
     { id: "auto", title: "Remote-control surface", probes: ["auto.residue"], render: renderAuto, scale: null },
-    { id: "perm", title: "Permissions", probes: ["perm.state"], render: renderPerm, scale: null },
-    { id: "rest", title: "Everything else this browser reported", probes: [], render: renderUnclaimed, scale: null }
+    { id: "perm", title: "Permissions", probes: ["perm.state"], render: renderPerm, scale: null }
   ];
 
   function sectionNode(group) {
     var content = group.render();
     if (content === null && !(group.probes || []).length) return null;
-    var d = h("details", { class: "sec", id: "sec-" + group.id, open: "" });
+    var d = h("details", { class: "sec", id: "sec-" + group.id });
     var scale = group.scale ? group.scale() : null;
     d.appendChild(h("summary", null, h("h2", { text: group.title }), scale ? h("span", { class: "sec-scale", text: scale }) : null));
     var body = h("div", { class: "sec-body" }, probeStrip(group.probes));
@@ -1105,9 +487,10 @@
         h("p", {
           class: "band-note",
           text:
-            "One score for the whole scan, in steps of ten, raised only by evidence that disagrees with itself. It is not a probability, " +
-            "and it is not a total of per-reading weights. The strongest statement this page makes is that an environment appears modified; " +
-            "that describes the environment, not the person using it."
+            "One score for the whole scan, in steps of ten, raised only by evidence, and by how little other than a deliberate change accounts " +
+            "for that evidence. Each further finding raises what the ones before it left, so the scale is not a total, never falls because " +
+            "other readings agreed, and does not reach its top. The strongest statement this page makes is that an environment appears " +
+            "modified; that describes the environment, not the person using it."
         })
       )
     );
@@ -1146,9 +529,9 @@
     nodes.forEach(function (n) {
       host.appendChild(n);
     });
+    labelToggle();
     assessmentNode();
     renderFacts();
-    renderPayload();
   }
 
   function renderFacts() {
@@ -1176,20 +559,6 @@
       dl.appendChild(h("dt", { text: pr[0] }));
       dl.appendChild(h("dd", { text: String(pr[1]) }));
     });
-  }
-
-  function renderPayload() {
-    var host = document.getElementById("payload");
-    clear(host);
-    if (!state.payload) return;
-    host.appendChild(
-      h(
-        "details",
-        { class: "sec" },
-        h("summary", null, h("h2", { text: "Probe payload, as sent" })),
-        h("div", { class: "sec-body" }, h("pre", { class: "payload", text: JSON.stringify(requestBody(), null, 1) }))
-      )
-    );
   }
 
   function setStatus(s) {
@@ -1246,22 +615,39 @@
       });
   }
 
+  function sections() {
+    return document.querySelectorAll("details.sec");
+  }
+
+  function anyClosed() {
+    var list = sections();
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].hasAttribute("open")) return true;
+    }
+    return false;
+  }
+
   function setAll(open) {
-    var list = document.querySelectorAll("details.sec");
+    var list = sections();
     for (var i = 0; i < list.length; i++) {
       if (open) list[i].setAttribute("open", "");
       else list[i].removeAttribute("open");
     }
+    labelToggle();
+  }
+
+  function labelToggle() {
+    document.getElementById("toggle").textContent = anyClosed() ? "Expand all" : "Collapse all";
   }
 
   function init() {
     document.getElementById("run").addEventListener("click", runScan);
-    document.getElementById("expand").addEventListener("click", function () {
-      setAll(true);
+    document.getElementById("toggle").addEventListener("click", function () {
+      setAll(anyClosed());
     });
-    document.getElementById("collapse").addEventListener("click", function () {
-      setAll(false);
-    });
+    document.addEventListener("toggle", function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains("sec")) labelToggle();
+    }, true);
     renderFacts();
     runScan();
   }

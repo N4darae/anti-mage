@@ -50,7 +50,7 @@ func ExampleEnvironment_Findings() {
 	fmt.Println(a.Determination, a.Score)
 
 	// Output:
-	// discrepant 30
+	// discrepant 40
 }
 
 func ExampleDecode() {
