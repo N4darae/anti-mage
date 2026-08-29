@@ -103,3 +103,45 @@ func TestICEStateDoesNotDiluteAPayloadThatPredatesIt(t *testing.T) {
 		t.Fatalf("summary moved from %+v to %+v merely by adding a reading the payload has no data for", before, after)
 	}
 }
+
+func TestICEStateContradictsWhenGatheringFinishedWithCandidatesHeldAndNoneDescribed(t *testing.T) {
+	body := `{"localDescriptionSet":true,"finalState":"complete","gatheringEvents":2,
+		"sdpCandidateLines":0,"statsLocalCandidates":2,"candidateEvents":1,"candidateTypes":[]}`
+	got := sectionICEState(iceStateRequest(body), Inputs{}, claim{})
+	if got.Determination != Contradiction {
+		t.Fatalf("determination = %q, want %q; rows: %+v", got.Determination, Contradiction, got.Rows)
+	}
+}
+
+func TestICEStateReadsNothingIntoFinishedGatheringThatHoldsNothing(t *testing.T) {
+	body := `{"localDescriptionSet":true,"finalState":"complete","gatheringEvents":2,
+		"sdpCandidateLines":0,"statsLocalCandidates":0,"candidateEvents":1,"candidateTypes":[]}`
+	got := sectionICEState(iceStateRequest(body), Inputs{}, claim{})
+	if got.Determination == Contradiction {
+		t.Fatalf("determination = %q; a connection that gathered nothing and describes nothing agrees with itself, and an environment that reaches no network is never scored for it", got.Determination)
+	}
+}
+
+func TestICEStateReadsNothingWhenTheDescriptionCouldNotBeCounted(t *testing.T) {
+	body := `{"localDescriptionSet":true,"finalState":"complete","gatheringEvents":2,
+		"statsLocalCandidates":2,"candidateEvents":1,"candidateTypes":[]}`
+	got := sectionICEState(iceStateRequest(body), Inputs{}, claim{})
+	if got.Determination == Contradiction {
+		t.Fatalf("determination = %q; with no count of the description there is nothing for the statistics to disagree with", got.Determination)
+	}
+}
+
+func TestICEStateWeighsSilencedAnnouncementAboveAPlainDisagreement(t *testing.T) {
+	silenced := sectionICEState(iceStateRequest(gatheringNeverBegan), Inputs{}, claim{})
+	if silenced.weighs() != weightOnlyDeliberate {
+		t.Fatalf("weight = %d, want %d: turning this facility off leaves nothing to hold, so results held behind a state machine that never announced them is not a state anything but a deliberate change reaches",
+			silenced.weighs(), weightOnlyDeliberate)
+	}
+	body := `{"localDescriptionSet":true,"finalState":"complete","gatheringEvents":2,
+		"sdpCandidateLines":0,"statsLocalCandidates":2,"candidateEvents":1,"candidateTypes":[]}`
+	described := sectionICEState(iceStateRequest(body), Inputs{}, claim{})
+	if described.weighs() != weightDisagreement {
+		t.Fatalf("weight = %d, want %d: an environment that rewrites its own description is what the tools that shield this facility do, so this reading is not weighed as one nothing else produces",
+			described.weighs(), weightDisagreement)
+	}
+}

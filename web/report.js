@@ -158,8 +158,7 @@
           ["navigator.webdriver", m.webdriver],
           ["isSecureContext", m.isSecureContext],
           ["location.origin", m.origin]
-        ]),
-        "These are the surfaces on which a browser names its operating system. Every other section reads its observations against this claim rather than against a claim of its own."
+        ])
       )
     ];
   }
@@ -222,8 +221,7 @@
             ["forced-colors", c.forcedColors],
             ["display-mode", c.displayMode],
             ["scripting", c.scripting]
-          ]),
-          "Range media features are narrowed by bisection over min- queries. A feature that matches across the whole search range, or across none of it, has located no value and is reported as having located none."
+          ])
         )
       );
     }
@@ -250,8 +248,7 @@
             pairs.map(function (p) {
               return { cells: [p[0], { v: p[1], cls: "num" }, { v: p[2], cls: "num" }, { v: p[3], cls: p[3] === false ? "v-flag" : "" }], flag: p[3] === false };
             })
-          ),
-          "The CSS column comes from the narrowing above, so each row is one quantity asked for through two interfaces."
+          )
         )
       );
     }
@@ -297,8 +294,7 @@
             ["dates sampled", o.length],
             ["dates that did not parse", ometa ? ometa.unparsedCount : null],
             ["distinct offsets seen, in minutes", ometa ? ometa.distinctOffsets : null]
-          ]),
-          "The dates come from the server with the page, so the set asked about is not fixed in this script. A bare calendar date is sampled at noon UTC. Each date is read twice: once through the browser's own offset arithmetic, and once through the formatter for the zone the browser names."
+          ])
         )
       );
     }
@@ -320,8 +316,7 @@
           ["descriptor kind", wd.kind || null],
           ["configurable", wd.configurable === undefined ? null : wd.configurable],
           ["getter ends in [native code]", wd.getterNative === undefined ? null : wd.getterNative, wd.getterNative === false ? "v-flag" : ""]
-        ]),
-        "The HTML standard defines navigator.webdriver as the browser's own statement about whether it is under remote control. A browser with no such member reports no value here."
+        ])
       )
     );
 
@@ -349,8 +344,7 @@
               : "none",
             hits.length ? "v-flag" : ""
           ]
-        ]),
-        "A stack is produced twice, once by the engine's own failure and once by a throw of this script's own, so the two forms can be read against each other. The hook shapes probed describe how a name is formed rather than where it came from."
+        ])
       )
     );
 
@@ -362,8 +356,7 @@
           ["own property names on window", a.windowKeyCount],
           ["own property names on document", a.documentKeyCount],
           ["globals whose name starts with _ or $", prefixed.length ? prefixed : null]
-        ]),
-        "An extension the reader installed on purpose puts names of that last shape on the page, so they are listed as an observation."
+        ])
       )
     );
     return out;
@@ -396,8 +389,7 @@
               return !!r.error;
             }).length
           ]
-        ]),
-        "A name this browser does not recognise rejects the query. That is what the browser supports, and it is counted here rather than listed."
+        ])
       )
     );
     var n = p.notification || {};
@@ -414,8 +406,7 @@
           ["interface called", g.exercised],
           ["outcome", g.outcome],
           ["outcome matches the query", g.agree, g.agree === false ? "v-flag" : ""]
-        ]),
-        "The geolocation interface is called only where the query has already reported the permission denied, which is the one state in which the call is answered from that state alone: it raises no dialog, and it asks nothing off this machine."
+        ])
       )
     );
     return out;

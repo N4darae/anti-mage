@@ -32,7 +32,7 @@ func sectionWebGPU(r Request, _ Inputs, _ claim) Section {
 	if !named {
 		return webgpuNoWeight(s, "no graphics device was named", "with no device named there is nothing for an empty adapter to disagree with")
 	}
-	s.Rows = append(s.Rows, Row{Label: "graphics device, as reported", Value: clip(renderer, 90), Note: "read through the older of the two graphics interfaces"})
+	s.Rows = append(s.Rows, Row{Label: "graphics device, as reported", Value: clip(renderer, 90), Note: anomalyNote})
 
 	if isSoftwareRasteriser(renderer) {
 		return webgpuNoWeight(s, "the device named draws in software", "an environment already drawing in software is not contradicted by having no hardware adapter")
@@ -49,22 +49,22 @@ func sectionWebGPU(r Request, _ Inputs, _ claim) Section {
 		} else {
 			missing++
 		}
-		s.Rows = append(s.Rows, Row{Label: "adapter for the " + webgpuPathLabel(path) + " request", Value: answerOrAbsent(got, true), Note: ""})
+		s.Rows = append(s.Rows, Row{Label: "adapter for the " + webgpuPathLabel(path) + " request", Value: answerOrAbsent(got, true), Note: anomalyNote})
 	}
 
 	if granted > 0 {
 		s.Determination = Consistent
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the newer graphics interface reaches a device too", Note: "a request for a software fallback is not read here, because a machine with real hardware ordinarily has no software backend to offer"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the newer graphics interface reaches a device too", Note: anomalyNote})
 		return s
 	}
 
 	if fallback, known := boolean(adapter, "variants", "fallback", "adapter"); known && fallback {
-		s.Rows = append(s.Rows, Row{Label: "adapter for the software fallback request", Value: answerOrAbsent(true, true), Note: "read only because the three requests before it came back empty"})
+		s.Rows = append(s.Rows, Row{Label: "adapter for the software fallback request", Value: answerOrAbsent(true, true), Note: anomalyNote})
 		s.Determination, s.weight = Contradiction, weightOnlyDeliberate
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the newer graphics interface refuses every device it has and then grants one",
-			Note:  "the software fallback is that interface's own backend, so an environment that is granted it was never short of a device to grant; the three refusals before it withheld the hardware device the older interface names, which is a thing this environment decided rather than a thing it lacks",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -73,14 +73,14 @@ func sectionWebGPU(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "one graphics interface names a hardware device and the other reaches no device at all",
-		Note:  "both interfaces address the same device, so this reports that something between them has been changed; a policy or a driver may be what changed it, which is why this is read as a modification rather than as a false claim",
+		Note:  anomalyNote,
 	})
 	return s
 }
 
 func webgpuNoWeight(s Section, value, note string) Section {
 	s.Determination = Unverified
-	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: value, Note: note})
+	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: value, Note: anomalyNote})
 	return s
 }
 

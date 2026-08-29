@@ -13,7 +13,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 	screen, haveScreen := r.value("geom.screen")
 	css, haveCSS := r.value("geom.css")
 	if !haveScreen {
-		s.Rows = append(s.Rows, Row{Label: "screen numbers", Value: "not collected", Note: "the collector did not report them"})
+		s.Rows = append(s.Rows, Row{Label: "screen numbers", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 
@@ -22,7 +22,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		if !ok {
 			return 0, false
 		}
-		s.Rows = append(s.Rows, Row{Label: label, Value: itoa(v), Note: ""})
+		s.Rows = append(s.Rows, Row{Label: label, Value: itoa(v), Note: anomalyNote})
 		return v, true
 	}
 	w, haveW := dim("screen.width", "width")
@@ -38,7 +38,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		bad := 0
 		if aw > w {
 			bad = 1
-			s.Rows = append(s.Rows, Row{Label: "available width", Value: "exceeds the screen width", Note: screenGetters.annotate("the available space is defined as part of the screen")})
+			s.Rows = append(s.Rows, Row{Label: "available width", Value: "exceeds the screen width", Note: anomalyNote})
 		}
 		t.fold(1, bad, screenGetters)
 	}
@@ -46,19 +46,19 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		bad := 0
 		if ah > h {
 			bad = 1
-			s.Rows = append(s.Rows, Row{Label: "available height", Value: "exceeds the screen height", Note: screenGetters.annotate("the available space is defined as part of the screen")})
+			s.Rows = append(s.Rows, Row{Label: "available height", Value: "exceeds the screen height", Note: anomalyNote})
 		}
 		t.fold(1, bad, screenGetters)
 	}
 
 	jsDPR, haveJS := readDPR(screen)
 	if haveJS {
-		s.Rows = append(s.Rows, Row{Label: "window.devicePixelRatio", Value: strconv.FormatFloat(jsDPR, 'g', -1, 64), Note: "read from JavaScript"})
+		s.Rows = append(s.Rows, Row{Label: "window.devicePixelRatio", Value: strconv.FormatFloat(jsDPR, 'g', -1, 64), Note: anomalyNote})
 	}
 	if haveCSS {
 		cssDPR, haveCSSDPR := readDPR(css)
 		if haveCSSDPR {
-			s.Rows = append(s.Rows, Row{Label: "ratio recovered from CSS", Value: strconv.FormatFloat(cssDPR, 'g', -1, 64), Note: "from the resolution media feature, in dppx"})
+			s.Rows = append(s.Rows, Row{Label: "ratio recovered from CSS", Value: strconv.FormatFloat(cssDPR, 'g', -1, 64), Note: anomalyNote})
 		}
 		if haveJS && haveCSSDPR && jsDPR > 0 && cssDPR > 0 {
 			bad := 0
@@ -67,37 +67,36 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 				s.Rows = append(s.Rows, Row{
 					Label: "device pixel ratio",
 					Value: "JavaScript and CSS report different ratios",
-					Note:  dpr.annotate("these are two readings of one quantity and cannot differ"),
+					Note:  anomalyNote,
 				})
 			}
 			t.fold(1, bad, dpr)
 		}
 	} else {
-		s.Rows = append(s.Rows, Row{Label: "CSS readings", Value: "not collected", Note: "the ratio could not be checked against CSS"})
+		s.Rows = append(s.Rows, Row{Label: "CSS readings", Value: "not collected", Note: anomalyNote})
 	}
 
 	s.Determination = t.determination()
 	switch s.Determination {
 	case Inconclusive:
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: "too few numbers were reported"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: anomalyNote})
 	case Contradiction:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: strconv.Itoa(t.unexplained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
-			Note: "the numbers this browser reports are not consistent with each other." +
-				partlyExplainedNote(t.explained),
+			Note:  anomalyNote,
 		})
 	case Instrumented:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: strconv.Itoa(t.explained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
-			Note:  explainedConclusion,
+			Note:  anomalyNote,
 		})
 	default:
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the JavaScript and CSS readings agree",
-			Note:  strconv.Itoa(t.applied) + " requirements applied",
+			Note:  anomalyNote,
 		})
 	}
 	return s

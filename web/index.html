@@ -7,25 +7,6 @@
     <title>anti-mage — browser environment assessment</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="style.css" />
-    <!--
-      Page bootstrap. The server replaces the contents of this element with the
-      probe inputs it chose for this scan. The collector reads this element
-      first, then a window.AM_BOOTSTRAP global, then ./api/bootstrap, then
-      ./bootstrap.json, and takes the first of those that carries input.
-
-      Keys it reads, each optional, each overriding one default and leaving the
-      rest alone:
-
-        nonce            echoed back as the "nonce" field of POST /api/scan
-        time.offsets     instants to sample, as {"date","epochMs","iso"} records
-        dates            the same instants as plain strings
-        font / fonts     {"controls","measureString","bases","families",
-                          "coverage"} for the font probes
-
-      A scan whose bootstrap carries no instants reports the offset probe as
-      unsupported, because the dates a browser is asked about are the server's
-      to choose.
-    -->
     <script type="application/json" id="am-bootstrap">{}</script>
   </head>
   <body>

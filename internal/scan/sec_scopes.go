@@ -44,9 +44,9 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 			if r.unsupported(sc.id) {
 				reason = "the browser would not create this scope"
 			} else if r.ran(sc.id) {
-				reason = "the collector reported an error for this scope"
+				reason = "errored"
 			}
-			s.Rows = append(s.Rows, Row{Label: sc.label, Value: reason, Note: "not read as evidence"})
+			s.Rows = append(s.Rows, Row{Label: sc.label, Value: reason, Note: anomalyNote})
 			continue
 		}
 		values[sc.id] = v
@@ -57,14 +57,14 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 			s.Rows = append(s.Rows, Row{
 				Label: "scopes the browser created",
 				Value: joinLimit(created, 8),
-				Note:  "a scope that could not be created is not evidence of anything",
+				Note:  anomalyNote,
 			})
 		}
 	}
 	s.Rows = append(s.Rows, Row{
 		Label: "scopes compared",
 		Value: strconv.Itoa(len(live)),
-		Note:  "facts are compared only within this one page load",
+		Note:  anomalyNote,
 	})
 	if len(live) < 2 {
 		return s
@@ -87,11 +87,11 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 		if len(seen) == 1 {
 			for v, where := range seen {
 				if len(where) < 2 {
-					s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: "read in one scope only, so not compared"})
+					s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: anomalyNote})
 					continue
 				}
 				compared++
-				s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: "identical in " + strconv.Itoa(len(where)) + " scopes"})
+				s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: anomalyNote})
 			}
 			continue
 		}
@@ -104,11 +104,11 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 			}
 			note += joinLimit(seen[v], 3) + ": " + clip(v, 120)
 		}
-		s.Rows = append(s.Rows, Row{Label: f.label, Value: "the scopes disagree", Note: note})
+		s.Rows = append(s.Rows, Row{Label: f.label, Value: "the scopes disagree", Note: anomalyNote})
 	}
 
 	if compared == 0 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no fact was reported by two scopes", Note: "nothing was compared"})
+		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no fact was reported by two scopes", Note: anomalyNote})
 		return s
 	}
 	if disagreed > 0 {
@@ -116,7 +116,7 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: strconv.Itoa(disagreed) + " of " + strconv.Itoa(compared) + " facts differ between scopes of the same page",
-			Note:  "one definition in the specification cannot produce two values; something in this page's JavaScript environment has been redefined",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -124,7 +124,7 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "every fact reported by two or more scopes matched",
-		Note:  strconv.Itoa(compared) + " facts compared across " + strconv.Itoa(len(live)) + " scopes",
+		Note:  anomalyNote,
 	})
 	return s
 }

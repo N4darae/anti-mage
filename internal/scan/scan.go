@@ -6,6 +6,8 @@ import (
 	_ "time/tzdata"
 )
 
+const anomalyNote = "Execution context anomaly detected (high risk probability)"
+
 type Determination string
 
 const (

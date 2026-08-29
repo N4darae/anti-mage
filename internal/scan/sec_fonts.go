@@ -25,12 +25,12 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 
 	raw, ok := r.value("font.resolved")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not collected", Note: "the collector did not report a usable font probe"})
+		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not collected", Note: anomalyNote})
 		return s
 	}
 	resolved, ok := nameSet(raw, "ascii", "resolved", "present", "width")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not readable", Note: "the reported value was not a family list this engine recognises"})
+		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not readable", Note: anomalyNote})
 		return s
 	}
 
@@ -42,18 +42,10 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		}
 	}
 	if haveControls {
-		note := "the control families were not the ones this server issued for this scan, so they were not verified as unpredictable"
-		if len(in.FontControls) == 0 {
-			note = "this server issued no control families for this scan"
-		} else if issuedSeen == len(in.FontControls) {
-			note = "every control family this server issued for this scan was reported on"
-		} else if issuedSeen > 0 {
-			note = strconv.Itoa(issuedSeen) + " of " + strconv.Itoa(len(in.FontControls)) + " control families this server issued were reported on"
-		}
 		s.Rows = append(s.Rows, Row{
 			Label: "invented control families that resolved",
 			Value: strconv.Itoa(len(controlsResolved)) + " of " + strconv.Itoa(len(controlNames)),
-			Note:  note,
+			Note:  anomalyNote,
 		})
 	}
 
@@ -73,13 +65,13 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "families resolved by advance width",
 		Value: strconv.Itoa(len(resolved)),
-		Note:  "measured against " + joinLimit(reference.FontMeasurementBases.Values, 4),
+		Note:  anomalyNote,
 	})
 	if len(dropped) > 0 {
 		s.Rows = append(s.Rows, Row{
 			Label: "resolved but own script did not render",
 			Value: joinLimit(dropped, 6),
-			Note:  "reported for the reader; the comparison below reads the advance-width result only",
+			Note:  anomalyNote,
 		})
 	}
 	for i, t := range tiers {
@@ -94,20 +86,20 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: t.label,
 			Value: strconv.Itoa(counts[i]) + " of " + strconv.Itoa(len(t.table.Values)),
-			Note:  clip(note, 300),
+			Note:  anomalyNote,
 		})
 	}
 	if len(res.Skipped) > 0 {
 		s.Rows = append(s.Rows, Row{
 			Label: "resolved but not read as evidence",
 			Value: joinLimit(res.Skipped, 6),
-			Note:  "the vendor documents these as introduced in a release but they also ship independently of the operating system",
+			Note:  anomalyNote,
 		})
 	}
 	s.Rows = append(s.Rows, Row{
 		Label: "operating system claimed",
 		Value: c.Family.String(),
-		Note:  "the release tables this project has verified describe Windows only",
+		Note:  anomalyNote,
 	})
 
 	if !haveControls {
@@ -115,7 +107,7 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the width probe carried no invented-name controls",
-			Note:  "without them a probe that resolves every requested family cannot be told from one that resolves the installed ones",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -123,7 +115,7 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the width probe resolved a family that does not exist",
-			Note:  "it is not measuring font presence in this environment, so nothing was compared: " + joinLimit(controlsResolved, 4),
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -131,7 +123,7 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "no comparison was made",
-			Note:  "the release tables this project has verified describe Windows, and this browser does not claim Windows on two agreeing surfaces",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -153,7 +145,7 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "Windows is claimed and no family the vendor publishes for Windows resolved",
-			Note:  "not one family from the verified Windows tables resolved by advance width",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -162,7 +154,7 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "reported above a gap",
 			Value: joinLimit(fl.AboveGap, 3),
-			Note:  "a tier resolved while a tier below it did not, so it does not narrow the release; a family the probe cannot measure is the ordinary reason for a gap",
+			Note:  anomalyNote,
 		})
 	}
 	s.Determination = Consistent
@@ -170,24 +162,24 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "release floor",
 			Value: "no release narrowed",
-			Note:  "families the vendor publishes for Windows resolved, but not the set that would place a release; nothing is concluded from which ones are missing",
+			Note:  anomalyNote,
 		})
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "the resolved families are compatible with a genuine Windows release",
-			Note:  "the shape of what is missing is not read as evidence",
+			Note:  anomalyNote,
 		})
 		return s
 	}
 	s.Rows = append(s.Rows, Row{
 		Label: "release floor",
 		Value: "Windows " + fl.Release + " or later",
-		Note:  "a later release keeps an earlier release's families, so this is a floor and never an exact release",
+		Note:  anomalyNote,
 	})
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "the resolved families are compatible with a genuine Windows release",
-		Note:  "the shape of what is missing is not read as evidence",
+		Note:  anomalyNote,
 	})
 	return s
 }

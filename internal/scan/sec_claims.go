@@ -21,7 +21,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 			suppressed: "font.resolved",
 			label:      "the width probe",
 			proof:      "native.tostring",
-			proofNote:  "the 2D measurement interface the width probe needs was reported as a working native",
+			proofNote:  "measureText reported as a working native",
 			proven: func(r Request) bool {
 				v, ok := r.value("native.tostring")
 				if !ok {
@@ -43,7 +43,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 			suppressed: "scope.worker",
 			label:      "the worker reading",
 			proof:      "scope.availability",
-			proofNote:  "the same payload reports that a worker was created",
+			proofNote:  "same payload reports a worker was created",
 			proven: func(r Request) bool {
 				v, ok := r.value("scope.availability")
 				if !ok {
@@ -71,7 +71,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 			suppressed: "time.offsets",
 			label:      "the offset samples",
 			proof:      "time.zone",
-			proofNote:  "the same payload names a zone through the internationalisation API, and the offset call it needs is unconditional",
+			proofNote:  "same payload names a zone",
 			proven: func(r Request) bool {
 				v, ok := r.value("time.zone")
 				if !ok {
@@ -100,15 +100,14 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 				s.Rows = append(s.Rows, Row{
 					Label: p.label,
 					Value: "claimed a wait longer than the scan lasted",
-					Note: "reported waiting " + strconv.Itoa(waited) + " ms, but this server measured " +
-						strconv.Itoa(in.ElapsedMS) + " ms between issuing this scan and receiving it",
+					Note:  anomalyNote,
 				})
 				continue
 			}
 			s.Rows = append(s.Rows, Row{
 				Label: p.label,
 				Value: "reported unsupported",
-				Note:  "the reason given is that the probe did not finish, which claims nothing about the facility: " + clip(reason, 120),
+				Note:  anomalyNote,
 			})
 			checked++
 			continue
@@ -117,7 +116,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 			s.Rows = append(s.Rows, Row{
 				Label: p.label,
 				Value: "reported unsupported",
-				Note:  "nothing else in this payload shows the facility is present, so nothing is concluded",
+				Note:  anomalyNote,
 			})
 			checked++
 			continue
@@ -127,7 +126,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: p.label,
 			Value: "reported unsupported while the facility is present",
-			Note:  p.proofNote,
+			Note:  anomalyNote,
 		})
 	}
 
@@ -135,7 +134,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "nothing to compare",
-			Note:  "no probe reported itself unsupported",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -143,14 +142,14 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 		s.Rows = append(s.Rows, Row{
 			Label: "scan duration, measured by this server",
 			Value: strconv.Itoa(in.ElapsedMS) + " ms",
-			Note:  "measured between issuing this scan's inputs and receiving its payload",
+			Note:  anomalyNote,
 		})
 	}
 	if found == 0 {
 		s.Rows = append(s.Rows, Row{
 			Label: "conclusion",
 			Value: "nothing in this payload either confirms or contradicts what this browser reported it could not do",
-			Note:  strconv.Itoa(checked) + " unsupported report(s) examined, none of them answerable from the rest of the payload",
+			Note:  anomalyNote,
 		})
 		return s
 	}
@@ -158,7 +157,7 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 	s.Rows = append(s.Rows, Row{
 		Label: "conclusion",
 		Value: "a probe reported unsupported while this payload shows the facility is present",
-		Note:  strconv.Itoa(found) + " of " + strconv.Itoa(checked) + " unsupported report(s) are contradicted by the same payload",
+		Note:  anomalyNote,
 	})
 	return s
 }
