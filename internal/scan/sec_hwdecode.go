@@ -27,6 +27,15 @@ func sectionHWDecode(r Request, _ Inputs, _ claim) Section {
 	}
 	s.Rows = append(s.Rows, Row{Label: "graphics device, as reported", Value: clip(renderer, 90), Note: anomalyNote})
 
+	if gpuArchContradicted(r) {
+		s.Rows = append(s.Rows, Row{
+			Label: "conclusion",
+			Value: "another reading has already placed the device named in a generation it does not report, so the decoders it should carry settle nothing",
+			Note:  anomalyNote,
+		})
+		return s
+	}
+
 	_, entry, placed := hwDecodeEntry(renderer)
 	if !placed {
 		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "this project's table does not place the reported device", Note: anomalyNote})
