@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	_ "time/tzdata"
 )
 
 func field(v any, path ...string) (any, bool) {
@@ -62,6 +63,15 @@ func object(v any, path ...string) (map[string]any, bool) {
 	return m, ok
 }
 
+func list(v any, path ...string) ([]any, bool) {
+	x, ok := field(v, path...)
+	if !ok {
+		return nil, false
+	}
+	a, ok := x.([]any)
+	return a, ok
+}
+
 func strList(v any, path ...string) ([]string, bool) {
 	x, ok := field(v, path...)
 	if !ok {
@@ -78,6 +88,41 @@ func strList(v any, path ...string) ([]string, bool) {
 		}
 	}
 	return out, true
+}
+
+func numList(v any, path ...string) ([]float64, bool) {
+	a, ok := list(v, path...)
+	if !ok {
+		return nil, false
+	}
+	out := make([]float64, 0, len(a))
+	for _, e := range a {
+		f, isNum := e.(float64)
+		if !isNum || math.IsNaN(f) || math.IsInf(f, 0) {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out, true
+}
+
+func stringsOf(a []any) []string {
+	out := make([]string, 0, len(a))
+	for _, e := range a {
+		if s, ok := e.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func firstPositive(v any, keys ...string) (float64, bool) {
+	for _, k := range keys {
+		if f, ok := num(v, k); ok && f > 0 {
+			return f, true
+		}
+	}
+	return 0, false
 }
 
 func nameSet(v any, truthKeys ...string) ([]string, bool) {
