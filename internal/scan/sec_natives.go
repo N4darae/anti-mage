@@ -4,9 +4,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	_ "time/tzdata"
 
 	"github.com/N4darae/anti-mage/reference"
 )
+
+const nativesMaxRows = 8
 
 func sectionNatives(_ Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
