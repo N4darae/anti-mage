@@ -1,28 +1,5 @@
 package reference
 
-func NativeToStringForms(name string) NativeToStringResult {
-	return NativeToStringResult{
-		Measured: Table{
-			Values: []string{
-				"function " + name + "() { [native code] }",
-				"function get " + name + "() { [native code] }",
-				"function () { [native code] }",
-			},
-			Source:   Source{Origin: "ECMA-262, Function.prototype.toString, NativeFunction grammar (tc39.es/ecma262/#sec-function.prototype.tostring); measured on V8 12.4.254.21-node.56", Checked: "2026-08-25"},
-			Verified: true,
-		},
-		OtherEngine: Table{
-			Values: []string{
-				"function " + name + "() {\n    [native code]\n}",
-				"function get " + name + "() {\n    [native code]\n}",
-				"function () {\n    [native code]\n}",
-			},
-			Source:   Source{Origin: "ECMA-262, Function.prototype.toString, NativeFunction grammar permits implementation-defined whitespace (tc39.es/ecma262/#sec-function.prototype.tostring)", Checked: "2026-08-25"},
-			Verified: false,
-		},
-	}
-}
-
 var NativeFunctionOwnKeys = Table{
 	Values:   []string{"length", "name"},
 	Source:   Source{Origin: "ECMA-262, Standard Built-in ECMAScript Objects (tc39.es/ecma262/multipage/ecmascript-standard-built-in-objects.html); measured on V8 12.4.254.21-node.56 via Object.getOwnPropertyNames, Reflect.ownKeys and Object.getOwnPropertyDescriptors", Checked: "2026-08-25"},
