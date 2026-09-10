@@ -1,6 +1,9 @@
 package scan
 
-import "math"
+import (
+	"math"
+	_ "time/tzdata"
+)
 
 func sectionAudioBuf(r Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
@@ -65,8 +68,6 @@ func audioProbeStatus(r Request, id string) (string, bool) {
 	}
 	return p.Status, true
 }
-
-const audioDurationEpsilonSeconds = 1e-6
 
 func audioViewsAndArithmetic(v any, rows *[]Row, gcd explanation) (t tally) {
 	reqRate, haveReqRate := num(v, "requested", "sampleRateHz")
@@ -221,12 +222,6 @@ func audioRepeatInformational(v any, rows *[]Row) {
 		Note:  anomalyNote,
 	})
 }
-
-const (
-	audioScaleMaxRelativeResidual = 2.384185791015625e-07
-
-	audioScaleMinSamples = 32
-)
 
 func audioUniformScale(views any) (explanation, Row, bool) {
 	scale, ok := object(views, "scale")
