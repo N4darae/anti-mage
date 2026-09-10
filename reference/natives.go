@@ -1,10 +1,5 @@
 package reference
 
-type NativeToStringResult struct {
-	Measured    Table
-	OtherEngine Table
-}
-
 func NativeToStringForms(name string) NativeToStringResult {
 	return NativeToStringResult{
 		Measured: Table{

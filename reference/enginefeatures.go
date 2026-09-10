@@ -1,19 +1,5 @@
 package reference
 
-type EngineFeature struct {
-	ID string
-
-	Description string
-
-	ShipsInMajor int
-
-	Source Source
-
-	Observed string
-
-	Verified bool
-}
-
 var EngineFeatures = []EngineFeature{
 	{
 		ID:           "textFit",

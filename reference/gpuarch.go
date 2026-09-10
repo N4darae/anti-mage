@@ -1,21 +1,5 @@
 package reference
 
-type GPUArchitectureBlock struct {
-	Mask uint32
-
-	Devices map[uint32]string
-}
-
-type GPUArchitectureVendor struct {
-	PCIVendor uint32
-
-	Blocks []GPUArchitectureBlock
-
-	Source Source
-
-	Observed map[string]string
-}
-
 var GPUArchitectures = map[string]GPUArchitectureVendor{
 	"nvidia": {
 		PCIVendor: 0x10DE,

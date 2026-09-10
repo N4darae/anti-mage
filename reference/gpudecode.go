@@ -1,17 +1,5 @@
 package reference
 
-type GPUDecode struct {
-	Family string
-
-	AV1Decode bool
-
-	Source Source
-
-	Observed string
-
-	Verified bool
-}
-
 var NvidiaGeForceDecode = map[string]GPUDecode{
 	"20": {
 		Family:    "Turing",
