@@ -16,20 +16,6 @@ type GPUArchitectureVendor struct {
 	Observed map[string]string
 }
 
-func (v GPUArchitectureVendor) Architecture(device uint32) (string, bool) {
-	for _, block := range v.Blocks {
-		if name, ok := block.Devices[device&block.Mask]; ok {
-			return name, true
-		}
-	}
-	return "", false
-}
-
-func (v GPUArchitectureVendor) Verified(architecture string) bool {
-	_, ok := v.Observed[architecture]
-	return ok
-}
-
 var GPUArchitectures = map[string]GPUArchitectureVendor{
 	"nvidia": {
 		PCIVendor: 0x10DE,
