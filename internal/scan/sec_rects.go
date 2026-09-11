@@ -1,15 +1,11 @@
 package scan
 
-import "math"
-
-const rectTolerance = 1e-4
+import (
+	"math"
+	_ "time/tzdata"
+)
 
 const textmTolerance = 1e-6
-
-type rectPoint struct {
-	x, y, left, top, right, bottom, width, height                                 float64
-	haveX, haveY, haveLeft, haveTop, haveRight, haveBottom, haveWidth, haveHeight bool
-}
 
 func rectRead(v any, path ...string) (rectPoint, bool) {
 	obj, ok := object(v, path...)
