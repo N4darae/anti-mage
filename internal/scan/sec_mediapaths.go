@@ -1,6 +1,9 @@
 package scan
 
-import "sort"
+import (
+	"sort"
+	_ "time/tzdata"
+)
 
 func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
@@ -43,8 +46,6 @@ func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 	}
 	return s
 }
-
-const mediaPathMaxEntries = 500
 
 const mediaPathMaxRows = 8
 
