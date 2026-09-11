@@ -73,21 +73,11 @@ func list(v any, path ...string) ([]any, bool) {
 }
 
 func strList(v any, path ...string) ([]string, bool) {
-	x, ok := field(v, path...)
+	a, ok := list(v, path...)
 	if !ok {
 		return nil, false
 	}
-	a, ok := x.([]any)
-	if !ok {
-		return nil, false
-	}
-	out := make([]string, 0, len(a))
-	for _, e := range a {
-		if s, ok := e.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out, true
+	return stringsOf(a), true
 }
 
 func numList(v any, path ...string) ([]float64, bool) {
@@ -139,12 +129,7 @@ func nameSet(v any, truthKeys ...string) ([]string, bool) {
 		return nil, false
 	}
 	if a, ok := v.([]any); ok {
-		out := make([]string, 0, len(a))
-		for _, e := range a {
-			if s, ok := e.(string); ok {
-				out = append(out, s)
-			}
-		}
+		out := stringsOf(a)
 		sort.Strings(out)
 		return out, true
 	}
