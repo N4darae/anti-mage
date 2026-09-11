@@ -1,6 +1,9 @@
 package scan
 
-import "encoding/json"
+import (
+	"encoding/json"
+	_ "time/tzdata"
+)
 
 const (
 	StatusOK          = "ok"
@@ -42,6 +45,28 @@ func DecodeRequest(b []byte) (Request, error) {
 	return r, nil
 }
 
+type probeOutcome int
+
+const (
+	probeAbsent probeOutcome = iota
+	probeUnsupported
+	probeErrored
+	probeUnreadable
+	probeReadable
+)
+
+func (r Request) decoded(id string) (any, bool) {
+	p, ok := r.Probes[id]
+	if !ok || len(p.Value) == 0 {
+		return nil, false
+	}
+	var v any
+	if err := json.Unmarshal(p.Value, &v); err != nil {
+		return nil, false
+	}
+	return v, true
+}
+
 func (r Request) value(id string) (any, bool) {
 	p, ok := r.Probes[id]
 	if !ok || p.Status != StatusOK || len(p.Value) == 0 {
@@ -55,6 +80,23 @@ func (r Request) value(id string) (any, bool) {
 		return nil, false
 	}
 	return v, true
+}
+
+func (r Request) read(id string) (any, probeOutcome) {
+	p, ok := r.Probes[id]
+	switch {
+	case !ok:
+		return nil, probeAbsent
+	case p.Status == StatusUnsupported:
+		return nil, probeUnsupported
+	case p.Status == StatusError:
+		return nil, probeErrored
+	}
+	v, readable := r.value(id)
+	if !readable {
+		return nil, probeUnreadable
+	}
+	return v, probeReadable
 }
 
 func (r Request) ran(id string) bool {

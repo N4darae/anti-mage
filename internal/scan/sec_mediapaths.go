@@ -1,9 +1,10 @@
 package scan
 
 import (
-	"sort"
 	_ "time/tzdata"
 )
+
+const mediaPathMaxRows = 8
 
 func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
@@ -12,235 +13,106 @@ func sectionMediaPaths(r Request, _ Inputs, c claim) Section {
 	mm := explainedBy(c, keyMatchMedia)
 	cascade := explainedBy(c, keyMatchMedia, keyGetComputedStyle)
 
-	applied, failed := mediaPathReadStylesheet(r, &s, cascade)
+	applied, failed := s.addStylesheetReading(r)
 	t.fold(applied, failed, cascade)
-	applied, failed = mediaPathReadComplement(r, &s, mm)
+	applied, failed = s.addComplementReading(r)
 	t.fold(applied, failed, mm)
 
-	s.Determination = t.determination()
-	switch s.Determination {
-	case Inconclusive:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "nothing could be compared",
-			Note:  anomalyNote,
-		})
-	case Contradiction:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: mediaPathCount(t.unexplained) + " of " + mediaPathCount(t.applied) + " requirements did not hold",
-			Note:  anomalyNote,
-		})
-	case Instrumented:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: mediaPathCount(t.explained) + " of " + mediaPathCount(t.applied) + " requirements did not hold",
-			Note:  anomalyNote,
-		})
-	default:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "matchMedia, the cascade and the JavaScript-read viewport agree",
-			Note:  anomalyNote,
-		})
-	}
+	s.settle(t, conclusions{
+		inconclusive:  "nothing could be compared",
+		contradiction: outOf(t.unexplained, t.applied) + " requirements did not hold",
+		instrumented:  outOf(t.explained, t.applied) + " requirements did not hold",
+		consistent:    "matchMedia, the cascade and the JavaScript-read viewport agree",
+	})
 	return s
 }
 
-const mediaPathMaxRows = 8
-
-func mediaPathReadStylesheet(r Request, s *Section, cascade explanation) (applied, failed int) {
+func (s *Section) addStylesheetReading(r Request) (applied, failed int) {
 	raw, ok := r.value("media.stylesheet")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "stylesheet probe", Value: "not collected", Note: anomalyNote})
+		s.add("stylesheet probe", "not collected")
 		return 0, 0
 	}
-	controlOk, _ := boolean(raw, "controlOk")
-	if !controlOk {
-		s.Rows = append(s.Rows, Row{
-			Label: "stylesheet read-back",
-			Value: "not established",
-			Note:  anomalyNote,
-		})
+	sheet := readMediaStylesheet(raw)
+	if !sheet.controlOk {
+		s.add("stylesheet read-back", "not established")
 		return 0, 0
 	}
-	widthValid, _ := boolean(raw, "widthValid")
-	heightValid, _ := boolean(raw, "heightValid")
-	if !widthValid {
-		s.Rows = append(s.Rows, Row{Label: "width feature, stylesheet path", Value: "not established", Note: anomalyNote})
+	if !sheet.widthValid {
+		s.add("width feature, stylesheet path", "not established")
 	}
-	if !heightValid {
-		s.Rows = append(s.Rows, Row{Label: "height feature, stylesheet path", Value: "not established", Note: anomalyNote})
+	if !sheet.heightValid {
+		s.add("height feature, stylesheet path", "not established")
 	}
 
 	rowsUsed := 0
-	numeric, _ := field(raw, "numeric")
-	if arr, isArr := numeric.([]any); isArr {
-		if len(arr) > mediaPathMaxEntries {
-			arr = arr[:mediaPathMaxEntries]
+	for _, e := range sheet.numeric {
+		if !sheet.validFor(e.feature) || !e.answered {
+			continue
 		}
-		for _, e := range arr {
-			feature, haveFeature := str(e, "feature")
-			if !haveFeature {
-				continue
-			}
-			validForFeature := (feature == "width" && widthValid) || (feature == "height" && heightValid)
-			if !validForFeature {
-				continue
-			}
-			js, haveJS := boolean(e, "jsMatches")
-			css, haveCSS := boolean(e, "cssMatches")
-			if !haveJS || !haveCSS {
-				continue
-			}
-			applied++
-			if js == css {
-				continue
-			}
-			failed++
-			if rowsUsed < mediaPathMaxRows {
-				rowsUsed++
-				op, _ := str(e, "op")
-				px, _ := num(e, "px")
-				s.Rows = append(s.Rows, Row{
-					Label: "matchMedia vs the cascade",
-					Value: "(" + op + "-" + feature + ": " + itoa(px) + "px): matchMedia said " + mediaPathBoolWord(js) + ", the cascade said " + mediaPathBoolWord(css),
-					Note:  anomalyNote,
-				})
-			}
+		applied++
+		if e.js == e.css {
+			continue
+		}
+		failed++
+		if rowsUsed < mediaPathMaxRows {
+			rowsUsed++
+			s.add("matchMedia vs the cascade",
+				"("+e.op+"-"+e.feature+": "+itoa(e.px)+"px): matchMedia said "+mediaPathBoolWord(e.js)+", the cascade said "+mediaPathBoolWord(e.css))
 		}
 	}
 
-	discrete, _ := field(raw, "discrete")
-	if arr, isArr := discrete.([]any); isArr {
-		if len(arr) > mediaPathMaxEntries {
-			arr = arr[:mediaPathMaxEntries]
+	for _, d := range sheet.discreteReadings() {
+		applied++
+		if !d.disagree {
+			continue
 		}
-		type bucket struct {
-			jsTrue, cssTrue []string
-		}
-		buckets := map[string]*bucket{}
-		for _, e := range arr {
-			feature, haveFeature := str(e, "feature")
-			value, haveValue := str(e, "value")
-			if !haveFeature || !haveValue {
-				continue
-			}
-			b := buckets[feature]
-			if b == nil {
-				b = &bucket{}
-				buckets[feature] = b
-			}
-			if js, have := boolean(e, "jsMatches"); have && js {
-				b.jsTrue = append(b.jsTrue, value)
-			}
-			if css, have := boolean(e, "cssMatches"); have && css {
-				b.cssTrue = append(b.cssTrue, value)
-			}
-		}
-		features := make([]string, 0, len(buckets))
-		for f := range buckets {
-			features = append(features, f)
-		}
-		sort.Strings(features)
-		for _, feature := range features {
-			b := buckets[feature]
-			if len(b.jsTrue) != 1 || len(b.cssTrue) != 1 {
-
-				continue
-			}
-			applied++
-			if b.jsTrue[0] == b.cssTrue[0] {
-				continue
-			}
-			failed++
-			if rowsUsed < mediaPathMaxRows {
-				rowsUsed++
-				s.Rows = append(s.Rows, Row{
-					Label: "matchMedia vs the cascade",
-					Value: clip(feature, 40) + ": matchMedia said " + clip(b.jsTrue[0], 40) + ", the cascade said " + clip(b.cssTrue[0], 40),
-					Note:  anomalyNote,
-				})
-			}
+		failed++
+		if rowsUsed < mediaPathMaxRows {
+			rowsUsed++
+			s.add("matchMedia vs the cascade",
+				clip(d.feature, 40)+": matchMedia said "+clip(d.js, 40)+", the cascade said "+clip(d.css, 40))
 		}
 	}
 	return applied, failed
 }
 
-func mediaPathReadComplement(r Request, s *Section, mm explanation) (applied, failed int) {
+func (s *Section) addComplementReading(r Request) (applied, failed int) {
 	raw, ok := r.value("media.complement")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "complement probe", Value: "not collected", Note: anomalyNote})
+		s.add("complement probe", "not collected")
 		return 0, 0
 	}
+	mc := readMediaComplement(raw)
 
 	rowsUsed := 0
-	complements, _ := field(raw, "complements")
-	if arr, isArr := complements.([]any); isArr {
-		if len(arr) > mediaPathMaxEntries {
-			arr = arr[:mediaPathMaxEntries]
+	for _, e := range mc.complements {
+		applied++
+		if e.matches != e.negation {
+			continue
 		}
-		for _, e := range arr {
-			m, haveM := boolean(e, "matches")
-			n, haveN := boolean(e, "negationMatches")
-			if !haveM || !haveN {
-				continue
+		failed++
+		if rowsUsed < mediaPathMaxRows {
+			rowsUsed++
+			word := "both matched"
+			if !e.matches {
+				word = "both failed"
 			}
+			s.add("query and its negation", clip(e.query, 80)+" and its negation "+word)
+		}
+	}
+
+	for _, b := range mc.brackets {
+		for _, f := range b.flags {
 			applied++
-			if m != n {
+			if f.matched == f.wantTrue {
 				continue
 			}
 			failed++
 			if rowsUsed < mediaPathMaxRows {
 				rowsUsed++
-				q, _ := str(e, "query")
-				word := "both matched"
-				if !m {
-					word = "both failed"
-				}
-				s.Rows = append(s.Rows, Row{
-					Label: "query and its negation",
-					Value: clip(q, 80) + " and its negation " + word,
-					Note:  anomalyNote,
-				})
+				s.add("bracket vs the JavaScript-read viewport", clip(b.feature, 40)+" "+f.what)
 			}
-		}
-	}
-
-	brackets, _ := field(raw, "brackets")
-	if arr, isArr := brackets.([]any); isArr {
-		if len(arr) > mediaPathMaxEntries {
-			arr = arr[:mediaPathMaxEntries]
-		}
-		for _, e := range arr {
-			feature, haveFeature := str(e, "feature")
-			if !haveFeature {
-				continue
-			}
-			check := func(label, key string, wantTrue bool) {
-				v, have := boolean(e, key)
-				if !have {
-					return
-				}
-				applied++
-				if v == wantTrue {
-					return
-				}
-				failed++
-				if rowsUsed < mediaPathMaxRows {
-					rowsUsed++
-					s.Rows = append(s.Rows, Row{
-						Label: "bracket vs the JavaScript-read viewport",
-						Value: clip(feature, 40) + " " + label,
-						Note:  anomalyNote,
-					})
-				}
-			}
-
-			check("brackets the viewport a pixel below the value it reads, but did not match", "minInside", true)
-			check("brackets the viewport a pixel above the value it reads, but did not match", "maxInside", true)
-			check("excludes a value two pixels past the one it reads, but matched anyway", "minOutside", false)
-			check("excludes a value two pixels before the one it reads, but matched anyway", "maxOutside", false)
 		}
 	}
 	return applied, failed
@@ -251,8 +123,4 @@ func mediaPathBoolWord(b bool) string {
 		return "matches"
 	}
 	return "does not match"
-}
-
-func mediaPathCount(n int) string {
-	return itoa(float64(n))
 }

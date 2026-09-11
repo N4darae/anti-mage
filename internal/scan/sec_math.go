@@ -4,97 +4,102 @@ import (
 	_ "time/tzdata"
 )
 
-func sectionMath(r Request, _ Inputs, _ claim) Section {
-	s := Section{Determination: Inconclusive}
+const mathMaxRows = 12
 
-	exactSeen, exactWrong := mathRunExact(r, &s)
-	repeatSeen, repeatWrong := mathRunRepeat(r, &s)
-
-	if exactSeen == 0 && repeatSeen == 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "nothing to examine",
-			Note:  anomalyNote,
-		})
-		return s
-	}
-
-	if exactWrong > 0 || repeatWrong > 0 {
-		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "a numeric built-in disagreed with what the specification requires, or with its own second call",
-			Note:  anomalyNote,
-		})
-		return s
-	}
-
-	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "every exactly-specified result matched the specification, and every repeated call agreed with its own earlier reading",
-		Note:  anomalyNote,
-	})
-	return s
+type mathExactResult struct {
+	c   mathExactCase
+	got string
 }
 
-func mathRunExact(r Request, s *Section) (seen, wrong int) {
+type mathExactReading struct {
+	seen  int
+	wrong []mathExactResult
+}
+
+type mathRepeatResult struct {
+	name, first, second string
+}
+
+type mathRepeatReading struct {
+	seen  int
+	wrong []mathRepeatResult
+}
+
+func readMathExact(r Request) mathExactReading {
+	var reading mathExactReading
 	raw, ok := r.value("math.exact")
 	if !ok {
-		return 0, 0
+		return reading
 	}
 	for _, g := range mathExactGroups {
 		for _, c := range g.cases {
 			got, present := str(raw, c.key)
 			if !present {
-
 				continue
 			}
-			seen++
+			reading.seen++
 			if got != c.expected {
-				wrong++
-				if wrong <= mathMaxRows {
-					s.Rows = append(s.Rows, Row{
-						Label: c.expr,
-						Value: "reported " + clip(got, 40),
-						Note:  anomalyNote,
-					})
-				}
+				reading.wrong = append(reading.wrong, mathExactResult{c, got})
 			}
 		}
 	}
-	return seen, wrong
+	return reading
 }
 
-const mathMaxRows = 12
-
-func mathRunRepeat(r Request, s *Section) (seen, wrong int) {
+func readMathRepeat(r Request) mathRepeatReading {
+	var reading mathRepeatReading
 	raw, ok := r.value("math.repeat")
 	if !ok {
-		return 0, 0
+		return reading
 	}
 	m, isMap := object(raw)
 	if !isMap {
-		return 0, 0
+		return reading
 	}
 	for _, k := range keys(m) {
-		a, aok := str(raw, k, "a")
-		b, bok := str(raw, k, "b")
-		if !aok || !bok {
-
+		first, haveFirst := str(raw, k, "a")
+		second, haveSecond := str(raw, k, "b")
+		if !haveFirst || !haveSecond {
 			continue
 		}
-		seen++
-		if a != b {
-			wrong++
-			if wrong <= mathMaxRows {
-				s.Rows = append(s.Rows, Row{
-					Label: "Math." + clip(k, 40) + ", called twice with the same argument",
-					Value: "reported " + clip(a, 40) + " then " + clip(b, 40),
-					Note:  anomalyNote,
-				})
-			}
+		reading.seen++
+		if first != second {
+			reading.wrong = append(reading.wrong, mathRepeatResult{k, first, second})
 		}
 	}
-	return seen, wrong
+	return reading
+}
+
+func sectionMath(r Request, _ Inputs, _ claim) Section {
+	s := Section{Determination: Inconclusive}
+
+	exact := readMathExact(r)
+	repeat := readMathRepeat(r)
+
+	for i, w := range exact.wrong {
+		if i >= mathMaxRows {
+			break
+		}
+		s.add(w.c.expr, "reported "+clip(w.got, 40))
+	}
+	for i, w := range repeat.wrong {
+		if i >= mathMaxRows {
+			break
+		}
+		s.add("Math."+clip(w.name, 40)+", called twice with the same argument",
+			"reported "+clip(w.first, 40)+" then "+clip(w.second, 40))
+	}
+
+	if exact.seen == 0 && repeat.seen == 0 {
+		s.conclude("nothing to examine")
+		return s
+	}
+	if len(exact.wrong) > 0 || len(repeat.wrong) > 0 {
+		s.Determination = Contradiction
+		s.conclude("a numeric built-in disagreed with what the specification requires, or with its own second call")
+		return s
+	}
+	s.Determination = Consistent
+	s.conclude("every exactly-specified result matched the specification, and every repeated call agreed with its own earlier reading")
+	return s
 }
