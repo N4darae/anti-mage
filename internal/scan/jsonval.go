@@ -116,6 +116,15 @@ func stringsOf(a []any) []string {
 	return out
 }
 
+func firstString(v any, paths ...[]string) string {
+	for _, p := range paths {
+		if s, ok := str(v, p...); ok && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 func firstPositive(v any, keys ...string) (float64, bool) {
 	for _, k := range keys {
 		if f, ok := num(v, k); ok && f > 0 {
@@ -179,6 +188,22 @@ func contains(xs []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	x := append([]string(nil), a...)
+	y := append([]string(nil), b...)
+	sort.Strings(x)
+	sort.Strings(y)
+	for i := range x {
+		if x[i] != y[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func joinLimit(xs []string, n int) string {

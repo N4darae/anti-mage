@@ -1,5 +1,9 @@
 package scan
 
+import (
+	_ "time/tzdata"
+)
+
 var notificationEquivalent = map[string]string{
 	"granted": "granted",
 	"denied":  "denied",
@@ -76,15 +80,6 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		Note:  anomalyNote,
 	})
 	return s
-}
-
-func firstString(v any, paths ...[]string) string {
-	for _, p := range paths {
-		if s, ok := str(v, p...); ok && s != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func valueOrAbsent(s string) string {

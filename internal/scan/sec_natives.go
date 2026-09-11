@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 	_ "time/tzdata"
@@ -216,20 +215,4 @@ func readReceiver(v any) (threw, skipped, ok bool) {
 		return false, true, true
 	}
 	return false, false, false
-}
-
-func sameSet(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	x := append([]string(nil), a...)
-	y := append([]string(nil), b...)
-	sort.Strings(x)
-	sort.Strings(y)
-	for i := range x {
-		if x[i] != y[i] {
-			return false
-		}
-	}
-	return true
 }
