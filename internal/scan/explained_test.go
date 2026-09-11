@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	_ "time/tzdata"
 )
 
 var measuredNativeTargetKeys = []string{
@@ -589,6 +590,26 @@ func TestTheCollectorDeclaresEveryAccessorKeyThisPackageMaps(t *testing.T) {
 		}
 		t.Errorf("nativeTargets in web/collect.js does not probe %q, which explained.go maps a requirement onto", k)
 	}
+}
+
+func collectorNativeTargets(t *testing.T) (string, string) {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join("..", "..", "web", "*.js"))
+	if err != nil {
+		t.Fatalf("the collector sources could not be listed: %v", err)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		src, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("the collector source %s could not be read: %v", p, err)
+		}
+		if i := bytes.Index(src, []byte("function nativeTargets(")); i >= 0 {
+			return string(src[i:]), filepath.ToSlash(p)
+		}
+	}
+	t.Fatal("no file under web/ declares nativeTargets")
+	return "", ""
 }
 
 func collectorDeclares(declared, key string) bool {
