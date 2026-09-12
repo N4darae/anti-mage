@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"encoding/json"
 	"strconv"
 	"strings"
 	_ "time/tzdata"
@@ -161,24 +160,4 @@ func sectionClaims(r Request, in Inputs, _ claim) Section {
 		Note:  anomalyNote,
 	})
 	return s
-}
-
-func unsupportedReason(r Request, id string) (string, bool) {
-	p, ok := r.Probes[id]
-	if !ok || len(p.Value) == 0 {
-		return "", false
-	}
-	var raw any
-	if err := json.Unmarshal(p.Value, &raw); err != nil {
-		return "", false
-	}
-	if str, isStr := raw.(string); isStr {
-		return str, true
-	}
-	for _, k := range []string{"reason", "message", "why"} {
-		if v, have := str(raw, k); have && v != "" {
-			return v, true
-		}
-	}
-	return "", false
 }

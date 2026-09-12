@@ -8,6 +8,22 @@ import (
 
 const clockMarginMS = 250
 
+func unsupportedReason(r Request, id string) (string, bool) {
+	raw, ok := r.decoded(id)
+	if !ok {
+		return "", false
+	}
+	if text, isStr := raw.(string); isStr {
+		return text, true
+	}
+	for _, k := range []string{"reason", "message", "why"} {
+		if v, have := str(raw, k); have && v != "" {
+			return v, true
+		}
+	}
+	return "", false
+}
+
 func assertsAbsence(reason string) bool {
 	low := strings.ToLower(reason)
 	for _, incomplete := range []string{
