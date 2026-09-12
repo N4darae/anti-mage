@@ -575,20 +575,12 @@ func TestAnExplainedDisagreementBesideAnUnexplainedOneStillConvicts(t *testing.T
 }
 
 func TestTheCollectorDeclaresEveryAccessorKeyThisPackageMaps(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join("..", "..", "web", "collect.js"))
-	if err != nil {
-		t.Fatalf("the collector source could not be read: %v", err)
-	}
-	i := bytes.Index(src, []byte("function nativeTargets("))
-	if i < 0 {
-		t.Fatal("web/collect.js declares no nativeTargets")
-	}
-	declared := string(src[i:])
+	declared, where := collectorNativeTargets(t)
 	for _, k := range mappedAccessorKeys {
 		if collectorDeclares(declared, k) {
 			continue
 		}
-		t.Errorf("nativeTargets in web/collect.js does not probe %q, which explained.go maps a requirement onto", k)
+		t.Errorf("nativeTargets in %s does not probe %q, which explained.go maps a requirement onto", where, k)
 	}
 }
 
