@@ -1,6 +1,9 @@
 package scan
 
-import "sort"
+import (
+	"sort"
+	_ "time/tzdata"
+)
 
 type nativeReading struct {
 	targets []string
@@ -19,6 +22,26 @@ type nativeViolation struct {
 
 func (n nativeReading) reportsModified(key string) bool {
 	return n.modified[key]
+}
+
+func (n *nativeReading) note(id, what string) {
+	n.violations = append(n.violations, nativeViolation{id, what})
+	n.modified[id] = true
+}
+
+func eachAccessor(r Request, probe string, targets map[string]bool, visit func(id string, raw any)) {
+	v, ok := r.value(probe)
+	if !ok {
+		return
+	}
+	m, isMap := v.(map[string]any)
+	if !isMap {
+		return
+	}
+	for _, id := range keys(m) {
+		targets[id] = true
+		visit(id, m[id])
+	}
 }
 
 func readNativeAccessors(r Request) nativeReading {
