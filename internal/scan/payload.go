@@ -69,14 +69,11 @@ func (r Request) decoded(id string) (any, bool) {
 
 func (r Request) value(id string) (any, bool) {
 	p, ok := r.Probes[id]
-	if !ok || p.Status != StatusOK || len(p.Value) == 0 {
+	if !ok || p.Status != StatusOK {
 		return nil, false
 	}
-	var v any
-	if err := json.Unmarshal(p.Value, &v); err != nil {
-		return nil, false
-	}
-	if v == nil {
+	v, decoded := r.decoded(id)
+	if !decoded || v == nil {
 		return nil, false
 	}
 	return v, true
