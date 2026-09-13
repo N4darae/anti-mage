@@ -2,23 +2,10 @@ package scan
 
 import (
 	"strconv"
+	_ "time/tzdata"
 
 	"github.com/N4darae/anti-mage/osfont"
-	"github.com/N4darae/anti-mage/reference"
 )
-
-type fontTier struct {
-	label string
-	table reference.Table
-}
-
-func windowsTiers() []fontTier {
-	return []fontTier{
-		{"families that predate Windows 10", reference.WindowsBaseFonts},
-		{"families added in Windows 10", reference.WindowsVersionMarkerFonts["10"]},
-		{"families added in Windows 11", reference.WindowsVersionMarkerFonts["11"]},
-	}
-}
 
 func sectionFonts(r Request, in Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
@@ -200,31 +187,4 @@ func readFontControls(r Request) (names, resolvedControls []string, ok bool) {
 		return nil, nil, false
 	}
 	return names, resolvedControls, true
-}
-
-func coverageFailures(r Request, resolved []string) []string {
-	raw, ok := r.value("font.coverage")
-	if !ok {
-		return nil
-	}
-	m, ok := raw.(map[string]any)
-	if !ok {
-		return nil
-	}
-	var out []string
-	for _, f := range keys(m) {
-		if !contains(resolved, f) {
-			continue
-		}
-		covers, have := boolean(m[f], "covers")
-		if !have {
-			if b, isBool := m[f].(bool); isBool {
-				covers, have = b, true
-			}
-		}
-		if have && !covers {
-			out = append(out, f)
-		}
-	}
-	return out
 }
