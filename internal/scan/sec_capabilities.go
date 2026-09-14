@@ -11,12 +11,12 @@ func sectionCapabilities(r Request, _ Inputs, _ claim) Section {
 
 	raw, ok := r.value("media.matrix")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "codec answers", Value: "not collected", Note: anomalyNote})
+		s.add("codec answers", "not collected")
 		return s
 	}
 	m, isMap := raw.(map[string]any)
 	if !isMap {
-		s.Rows = append(s.Rows, Row{Label: "codec answers", Value: "not readable", Note: anomalyNote})
+		s.add("codec answers", "not readable")
 		return s
 	}
 
@@ -29,20 +29,12 @@ func sectionCapabilities(r Request, _ Inputs, _ claim) Section {
 	const maxRows = 40
 	for i, e := range entries {
 		if i >= maxRows {
-			s.Rows = append(s.Rows, Row{
-				Label: "further answers",
-				Value: strconv.Itoa(len(entries)-maxRows) + " more not shown",
-				Note:  anomalyNote,
-			})
+			s.add("further answers", strconv.Itoa(len(entries)-maxRows)+" more not shown")
 			break
 		}
-		s.Rows = append(s.Rows, Row{Label: clip(e.label, 120), Value: e.value, Note: anomalyNote})
+		s.add(clip(e.label, 120), e.value)
 	}
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "reported, not weighed",
-		Note:  anomalyNote,
-	})
+	s.conclude("reported, not weighed")
 	return s
 }
 
