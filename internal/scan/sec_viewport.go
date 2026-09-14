@@ -1,15 +1,15 @@
 package scan
 
+import (
+	_ "time/tzdata"
+)
+
 func sectionViewport(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}
 
 	geom, ok := r.value("geom.screen")
 	if !ok {
-		s.Rows = append(s.Rows, Row{
-			Label: "screen and viewport",
-			Value: "not collected",
-			Note:  anomalyNote,
-		})
+		s.add("screen and viewport", "not collected")
 		return s
 	}
 
@@ -18,38 +18,34 @@ func sectionViewport(r Request, _ Inputs, _ claim) Section {
 	innerW, haveInnerW := num(geom, "innerWidth")
 	innerH, haveInnerH := num(geom, "innerHeight")
 
-	s.Rows = append(s.Rows, Row{Label: "screen, as reported", Value: dimension(screenW, haveScreenW, screenH, haveScreenH), Note: anomalyNote})
-	s.Rows = append(s.Rows, Row{Label: "viewport, as reported", Value: dimension(innerW, haveInnerW, innerH, haveInnerH), Note: anomalyNote})
+	s.add("screen, as reported", dimension(screenW, haveScreenW, screenH, haveScreenH))
+	s.add("viewport, as reported", dimension(innerW, haveInnerW, innerH, haveInnerH))
 
 	if !haveScreenW || !haveScreenH || !haveInnerW || !haveInnerH {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the four numbers was not reported", Note: anomalyNote})
+		s.conclude("one of the four numbers was not reported")
 		return s
 	}
 	if screenW <= 0 || screenH <= 0 || innerW <= 0 || innerH <= 0 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "a reported size was zero or negative", Note: anomalyNote})
+		s.conclude("a reported size was zero or negative")
 		return s
 	}
 
 	offsetX, haveOffsetX := num(geom, "screenX")
 	offsetY, haveOffsetY := num(geom, "screenY")
 	if (haveOffsetX && offsetX < 0) || (haveOffsetY && offsetY < 0) {
-		s.Rows = append(s.Rows, Row{Label: "window offset", Value: offset(offsetX, haveOffsetX, offsetY, haveOffsetY), Note: anomalyNote})
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the window is not positioned on the screen that was measured", Note: anomalyNote})
+		s.add("window offset", offset(offsetX, haveOffsetX, offsetY, haveOffsetY))
+		s.conclude("the window is not positioned on the screen that was measured")
 		return s
 	}
 
 	if innerH > screenH || innerW > screenW {
 		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the area this page was given is larger than the screen it is said to be displayed on",
-			Note:  anomalyNote,
-		})
+		s.conclude("the area this page was given is larger than the screen it is said to be displayed on")
 		return s
 	}
 
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "the viewport fits within the screen this environment claims", Note: anomalyNote})
+	s.conclude("the viewport fits within the screen this environment claims")
 	return s
 }
 
