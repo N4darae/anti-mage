@@ -170,21 +170,3 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 	})
 	return s
 }
-
-func readFontControls(r Request) (names, resolvedControls []string, ok bool) {
-	raw, have := r.value("font.controls")
-	if !have {
-		return nil, nil, false
-	}
-	resolvedControls, _ = nameSet(raw, "ascii", "resolved", "present", "width")
-	if m, isMap := raw.(map[string]any); isMap {
-		names = keys(m)
-	} else {
-
-		names = resolvedControls
-	}
-	if len(names) == 0 && len(resolvedControls) == 0 {
-		return nil, nil, false
-	}
-	return names, resolvedControls, true
-}
