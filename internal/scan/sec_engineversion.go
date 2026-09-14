@@ -3,6 +3,7 @@ package scan
 import (
 	"regexp"
 	"strconv"
+	_ "time/tzdata"
 
 	"github.com/N4darae/anti-mage/reference"
 )
@@ -26,18 +27,14 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 
 	claimed, ok := claimedEngineMajor(c)
 	if !ok {
-		s.Rows = append(s.Rows, Row{
-			Label: "engine version, as claimed",
-			Value: "not reported",
-			Note:  anomalyNote,
-		})
+		s.add("engine version, as claimed", "not reported")
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "engine version, as claimed", Value: strconv.Itoa(claimed), Note: anomalyNote})
+	s.add("engine version, as claimed", strconv.Itoa(claimed))
 
 	features, ok := r.value("engine.features")
 	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "engine feature observations", Value: "not collected", Note: anomalyNote})
+		s.add("engine feature observations", "not collected")
 		return s
 	}
 
@@ -56,39 +53,23 @@ func sectionEngineVersion(r Request, _ Inputs, c claim) Section {
 		}
 		applicable++
 		if present {
-			laterPresent = append(laterPresent, Row{
-				Label: fe.Description,
-				Value: "present",
-				Note:  anomalyNote,
-			})
+			laterPresent = append(laterPresent, noted(fe.Description, "present"))
 		}
 	}
 
 	if applicable == 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "no tabulated, verified capability ships after the version this environment claims",
-			Note:  anomalyNote,
-		})
+		s.conclude("no tabulated, verified capability ships after the version this environment claims")
 		return s
 	}
 
 	if len(laterPresent) > 0 {
 		s.Determination = Contradiction
 		s.Rows = append(s.Rows, laterPresent...)
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "this environment demonstrates a capability tabulated as shipping later than the version it claims",
-			Note:  anomalyNote,
-		})
+		s.conclude("this environment demonstrates a capability tabulated as shipping later than the version it claims")
 		return s
 	}
 
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "no capability later than the claimed version was demonstrated",
-		Note:  anomalyNote,
-	})
+	s.conclude("no capability later than the claimed version was demonstrated")
 	return s
 }
