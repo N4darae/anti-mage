@@ -1,26 +1,22 @@
 package scan
 
+import (
+	_ "time/tzdata"
+)
+
 func sectionCanvasSerial(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}
 
 	v, ok := r.value("canvas.serial")
 	if !ok {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "not collected",
-			Note:  anomalyNote,
-		})
+		s.conclude("not collected")
 		return s
 	}
 
 	dataAvail, haveDataAvail := boolean(v, "dataUrlAvailable")
 	blobAvail, haveBlobAvail := boolean(v, "blobAvailable")
 	if !haveDataAvail || !dataAvail || !haveBlobAvail || !blobAvail {
-		s.Rows = append(s.Rows, Row{
-			Label: "canvas serialisation, both paths",
-			Value: "one or both paths unavailable",
-			Note:  anomalyNote,
-		})
+		s.add("canvas serialisation, both paths", "one or both paths unavailable")
 		return s
 	}
 
@@ -31,40 +27,28 @@ func sectionCanvasSerial(r Request, _ Inputs, _ claim) Section {
 	blobMatch, haveBlobMatch := boolean(v, "blobPixelsMatchRaw")
 
 	if !haveRaw || !haveDataHash || !haveDataMatch || !haveBlobHash || !haveBlobMatch {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "one of the readings was not reported", Note: anomalyNote})
+		s.conclude("one of the readings was not reported")
 		return s
 	}
 
-	s.Rows = append(s.Rows, Row{Label: "raw canvas pixels", Value: rawHash, Note: anomalyNote})
-	s.Rows = append(s.Rows, Row{Label: "toDataURL PNG, decoded pixels vs raw canvas", Value: answerOrAbsent(dataMatch, true), Note: anomalyNote})
-	s.Rows = append(s.Rows, Row{Label: "toBlob PNG, decoded pixels vs raw canvas", Value: answerOrAbsent(blobMatch, true), Note: anomalyNote})
+	s.add("raw canvas pixels", rawHash)
+	s.add("toDataURL PNG, decoded pixels vs raw canvas", answerOrAbsent(dataMatch, true))
+	s.add("toBlob PNG, decoded pixels vs raw canvas", answerOrAbsent(blobMatch, true))
 
 	if !dataMatch || !blobMatch {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "one of the encoded paths did not decode back to the canvas's own pixels",
-			Note:  anomalyNote,
-		})
+		s.conclude("one of the encoded paths did not decode back to the canvas's own pixels")
 		return s
 	}
 
-	s.Rows = append(s.Rows, Row{Label: "toDataURL PNG bytes", Value: canvasSerialByteSummary(v, "dataUrlLength", dataHash), Note: anomalyNote})
-	s.Rows = append(s.Rows, Row{Label: "toBlob PNG bytes", Value: canvasSerialByteSummary(v, "blobLength", blobHash), Note: anomalyNote})
+	s.add("toDataURL PNG bytes", canvasSerialByteSummary(v, "dataUrlLength", dataHash))
+	s.add("toBlob PNG bytes", canvasSerialByteSummary(v, "blobLength", blobHash))
 
 	if dataHash == blobHash {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "both serialisation paths encoded the identical pixels to the identical bytes",
-			Note:  anomalyNote,
-		})
+		s.conclude("both serialisation paths encoded the identical pixels to the identical bytes")
 		return s
 	}
 
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "both serialisation paths encoded the identical pixels to different bytes",
-		Note:  anomalyNote,
-	})
+	s.conclude("both serialisation paths encoded the identical pixels to different bytes")
 	return s
 }
 
