@@ -81,10 +81,3 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 	})
 	return s
 }
-
-func valueOrAbsent(s string) string {
-	if s == "" {
-		return "not reported"
-	}
-	return clip(s, 40)
-}

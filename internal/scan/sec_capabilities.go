@@ -3,6 +3,7 @@ package scan
 import (
 	"sort"
 	"strconv"
+	_ "time/tzdata"
 )
 
 func sectionCapabilities(r Request, _ Inputs, _ claim) Section {
@@ -82,11 +83,4 @@ func renderCodec(v any) string {
 		return clip(out, 200)
 	}
 	return "no answer"
-}
-
-func boolWord(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
 }

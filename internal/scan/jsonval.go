@@ -1,11 +1,8 @@
 package scan
 
 import (
-	"fmt"
 	"math"
 	"sort"
-	"strconv"
-	"strings"
 	_ "time/tzdata"
 )
 
@@ -189,37 +186,4 @@ func sameSet(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-func joinLimit(xs []string, n int) string {
-	if len(xs) == 0 {
-		return "none"
-	}
-	if len(xs) <= n {
-		return strings.Join(xs, ", ")
-	}
-	return strings.Join(xs[:n], ", ") + fmt.Sprintf(", and %d more", len(xs)-n)
-}
-
-func clip(s string, n int) string {
-	s = strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\t' {
-			return ' '
-		}
-		if r < 0x20 || r == 0x7f {
-			return -1
-		}
-		return r
-	}, s)
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
-
-func itoa(f float64) string {
-	if f == math.Trunc(f) && math.Abs(f) < 1e15 {
-		return strconv.FormatInt(int64(f), 10)
-	}
-	return strconv.FormatFloat(f, 'g', -1, 64)
 }

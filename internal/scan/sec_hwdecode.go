@@ -94,13 +94,3 @@ func hwDecodeEntry(renderer string) (string, reference.GPUDecode, bool) {
 	}
 	return series, entry, true
 }
-
-func answerOrAbsent(value, present bool) string {
-	if !present {
-		return "not reported"
-	}
-	if value {
-		return "yes"
-	}
-	return "no"
-}
