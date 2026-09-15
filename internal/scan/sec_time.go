@@ -3,6 +3,7 @@ package scan
 import (
 	"strconv"
 	"time"
+	_ "time/tzdata"
 )
 
 const transitionGuard = 48 * time.Hour
@@ -12,41 +13,34 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 
 	zoneRaw, haveZone := r.value("time.zone")
 	if !haveZone {
-		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not collected", Note: anomalyNote})
+		s.add("time zone", "not collected")
 		return s
 	}
-	zone, ok := str(zoneRaw, "timeZone")
-	if !ok {
-		zone, ok = str(zoneRaw, "zone")
-	}
-	if !ok {
-		if s2, isStr := zoneRaw.(string); isStr {
-			zone, ok = s2, true
+	zone := firstString(zoneRaw, []string{"timeZone"}, []string{"zone"})
+	if zone == "" {
+		if named, isStr := zoneRaw.(string); isStr {
+			zone = named
 		}
 	}
 	if locale, have := str(zoneRaw, "locale"); have {
-		s.Rows = append(s.Rows, Row{Label: "resolved locale", Value: clip(locale, 80), Note: anomalyNote})
+		s.add("resolved locale", clip(locale, 80))
 	}
-	if !ok || zone == "" {
-		s.Rows = append(s.Rows, Row{Label: "time zone", Value: "not reported", Note: anomalyNote})
+	if zone == "" {
+		s.add("time zone", "not reported")
 		return s
 	}
-	s.Rows = append(s.Rows, Row{Label: "time zone", Value: clip(zone, 80), Note: anomalyNote})
+	s.add("time zone", clip(zone, 80))
 
 	loc, err := time.LoadLocation(zone)
 	if err != nil {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "this build's copy of the zone database does not contain that zone",
-			Note:  anomalyNote,
-		})
+		s.conclude("this build's copy of the zone database does not contain that zone")
 		return s
 	}
 
 	samples, haveSamples := readOffsets(r)
 	if !haveSamples {
-		s.Rows = append(s.Rows, Row{Label: "measured offsets", Value: "not collected", Note: anomalyNote})
+		s.add("measured offsets", "not collected")
 		return s
 	}
 
@@ -64,11 +58,7 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 	}
 	if len(issued) > 0 && matchedIssued == 0 {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "none of the instants this server issued were sampled",
-			Note:  anomalyNote,
-		})
+		s.conclude("none of the instants this server issued were sampled")
 		return s
 	}
 
@@ -93,45 +83,25 @@ func sectionTime(r Request, in Inputs, _ claim) Section {
 		}
 	}
 
-	s.Rows = append(s.Rows, Row{
-		Label: "instants compared",
-		Value: strconv.Itoa(usable) + " of " + strconv.Itoa(len(samples)),
-		Note:  anomalyNote,
-	})
+	s.add("instants compared", outOf(usable, len(samples)))
 	if len(issued) > 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "instants this server issued",
-			Value: strconv.Itoa(matchedIssued) + " of " + strconv.Itoa(len(issued)),
-			Note:  anomalyNote,
-		})
+		s.add("instants this server issued", outOf(matchedIssued, len(issued)))
 	}
 	if usable < 2 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "too few instants survived", Note: anomalyNote})
+		s.conclude("too few instants survived")
 		return s
 	}
 	if mismatched >= 2 {
 		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: strconv.Itoa(mismatched) + " of " + strconv.Itoa(usable) + " offsets do not match the named zone",
-			Note:  anomalyNote,
-		})
+		s.conclude(outOf(mismatched, usable) + " offsets do not match the named zone")
 		return s
 	}
 	if mismatched == 1 {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "one offset out of " + strconv.Itoa(usable) + " did not match",
-			Note:  anomalyNote,
-		})
+		s.conclude("one offset out of " + strconv.Itoa(usable) + " did not match")
 		return s
 	}
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "every offset matches the zone the browser names",
-		Note:  anomalyNote,
-	})
+	s.conclude("every offset matches the zone the browser names")
 	return s
 }
 
