@@ -11,36 +11,25 @@ func sectionNatives(_ Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
 	n := c.natives
 
-	s.Rows = append(s.Rows, Row{
-		Label: "accessors probed",
-		Value: strconv.Itoa(len(n.targets)),
-		Note:  anomalyNote,
-	})
+	s.add("accessors probed", strconv.Itoa(len(n.targets)))
 	if n.applied == 0 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no requirement could be applied", Note: anomalyNote})
+		s.conclude("no requirement could be applied")
 		return s
 	}
 	if len(n.violations) == 0 {
 		s.Determination = Consistent
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "every requirement held on every accessor tested",
-			Note:  anomalyNote,
-		})
+		s.conclude("every requirement held on every accessor tested")
 		return s
 	}
+
 	shown := n.violations
-	if len(shown) > 8 {
-		shown = shown[:8]
+	if len(shown) > nativesMaxRows {
+		shown = shown[:nativesMaxRows]
 	}
 	for _, v := range shown {
-		s.Rows = append(s.Rows, Row{Label: clip(v.target, 120), Value: "does not meet a requirement on a built-in", Note: anomalyNote})
+		s.add(clip(v.target, 120), "does not meet a requirement on a built-in")
 	}
 	s.Determination = Instrumented
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: strconv.Itoa(len(n.violations)) + " of " + strconv.Itoa(n.applied) + " requirements did not hold",
-		Note:  anomalyNote,
-	})
+	s.conclude(outOf(len(n.violations), n.applied) + " requirements did not hold")
 	return s
 }
