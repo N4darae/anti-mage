@@ -3,6 +3,7 @@ package scan
 import (
 	"math"
 	"strconv"
+	_ "time/tzdata"
 )
 
 const dprTolerance = 1e-3
@@ -13,7 +14,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 	screen, haveScreen := r.value("geom.screen")
 	css, haveCSS := r.value("geom.css")
 	if !haveScreen {
-		s.Rows = append(s.Rows, Row{Label: "screen numbers", Value: "not collected", Note: anomalyNote})
+		s.add("screen numbers", "not collected")
 		return s
 	}
 
@@ -22,7 +23,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		if !ok {
 			return 0, false
 		}
-		s.Rows = append(s.Rows, Row{Label: label, Value: itoa(v), Note: anomalyNote})
+		s.add(label, itoa(v))
 		return v, true
 	}
 	w, haveW := dim("screen.width", "width")
@@ -38,7 +39,7 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		bad := 0
 		if aw > w {
 			bad = 1
-			s.Rows = append(s.Rows, Row{Label: "available width", Value: "exceeds the screen width", Note: anomalyNote})
+			s.add("available width", "exceeds the screen width")
 		}
 		t.fold(1, bad, screenGetters)
 	}
@@ -46,67 +47,41 @@ func sectionGeometry(r Request, _ Inputs, c claim) Section {
 		bad := 0
 		if ah > h {
 			bad = 1
-			s.Rows = append(s.Rows, Row{Label: "available height", Value: "exceeds the screen height", Note: anomalyNote})
+			s.add("available height", "exceeds the screen height")
 		}
 		t.fold(1, bad, screenGetters)
 	}
 
 	jsDPR, haveJS := readDPR(screen)
 	if haveJS {
-		s.Rows = append(s.Rows, Row{Label: "window.devicePixelRatio", Value: strconv.FormatFloat(jsDPR, 'g', -1, 64), Note: anomalyNote})
+		s.add("window.devicePixelRatio", strconv.FormatFloat(jsDPR, 'g', -1, 64))
 	}
 	if haveCSS {
 		cssDPR, haveCSSDPR := readDPR(css)
 		if haveCSSDPR {
-			s.Rows = append(s.Rows, Row{Label: "ratio recovered from CSS", Value: strconv.FormatFloat(cssDPR, 'g', -1, 64), Note: anomalyNote})
+			s.add("ratio recovered from CSS", strconv.FormatFloat(cssDPR, 'g', -1, 64))
 		}
 		if haveJS && haveCSSDPR && jsDPR > 0 && cssDPR > 0 {
 			bad := 0
 			if math.Abs(jsDPR-cssDPR)/math.Max(jsDPR, cssDPR) > dprTolerance {
 				bad = 1
-				s.Rows = append(s.Rows, Row{
-					Label: "device pixel ratio",
-					Value: "JavaScript and CSS report different ratios",
-					Note:  anomalyNote,
-				})
+				s.add("device pixel ratio", "JavaScript and CSS report different ratios")
 			}
 			t.fold(1, bad, dpr)
 		}
 	} else {
-		s.Rows = append(s.Rows, Row{Label: "CSS readings", Value: "not collected", Note: anomalyNote})
+		s.add("CSS readings", "not collected")
 	}
 
-	s.Determination = t.determination()
-	switch s.Determination {
-	case Inconclusive:
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "nothing could be compared", Note: anomalyNote})
-	case Contradiction:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: strconv.Itoa(t.unexplained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
-			Note:  anomalyNote,
-		})
-	case Instrumented:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: strconv.Itoa(t.explained) + " of " + strconv.Itoa(t.applied) + " requirements did not hold",
-			Note:  anomalyNote,
-		})
-	default:
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the JavaScript and CSS readings agree",
-			Note:  anomalyNote,
-		})
-	}
+	s.settle(t, conclusions{
+		inconclusive:  "nothing could be compared",
+		contradiction: outOf(t.unexplained, t.applied) + " requirements did not hold",
+		instrumented:  outOf(t.explained, t.applied) + " requirements did not hold",
+		consistent:    "the JavaScript and CSS readings agree",
+	})
 	return s
 }
 
 func readDPR(v any) (float64, bool) {
-	for _, k := range []string{"devicePixelRatio", "dpr", "dppx", "resolution", "ratio"} {
-		if f, ok := num(v, k); ok && f > 0 {
-			return f, true
-		}
-	}
-	return 0, false
+	return firstPositive(v, "devicePixelRatio", "dpr", "dppx", "resolution", "ratio")
 }
