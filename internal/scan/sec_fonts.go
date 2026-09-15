@@ -10,14 +10,9 @@ import (
 func sectionFonts(r Request, in Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
 
-	raw, ok := r.value("font.resolved")
-	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not collected", Note: anomalyNote})
-		return s
-	}
-	resolved, ok := nameSet(raw, "ascii", "resolved", "present", "width")
-	if !ok {
-		s.Rows = append(s.Rows, Row{Label: "families resolved", Value: "not readable", Note: anomalyNote})
+	resolved, missing := readResolvedFonts(r)
+	if missing != "" {
+		s.add("families resolved", missing)
 		return s
 	}
 
@@ -29,144 +24,54 @@ func sectionFonts(r Request, in Inputs, c claim) Section {
 		}
 	}
 	if haveControls {
-		s.Rows = append(s.Rows, Row{
-			Label: "invented control families that resolved",
-			Value: strconv.Itoa(len(controlsResolved)) + " of " + strconv.Itoa(len(controlNames)),
-			Note:  anomalyNote,
-		})
+		s.add("invented control families that resolved", outOf(len(controlsResolved), len(controlNames)))
 	}
 
 	dropped := coverageFailures(r, resolved)
-
 	res := osfont.EvaluateWindows(resolved)
-	tiers := windowsTiers()
-	counts := make([]int, len(tiers))
-	for i, t := range tiers {
-		for _, f := range t.table.Values {
-			if contains(resolved, f) {
-				counts[i]++
-			}
-		}
-	}
+	tiers := countWindowsTiers(resolved)
 
-	s.Rows = append(s.Rows, Row{
-		Label: "families resolved by advance width",
-		Value: strconv.Itoa(len(resolved)),
-		Note:  anomalyNote,
-	})
+	s.add("families resolved by advance width", strconv.Itoa(len(resolved)))
 	if len(dropped) > 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "resolved but own script did not render",
-			Value: joinLimit(dropped, 6),
-			Note:  anomalyNote,
-		})
+		s.add("resolved but own script did not render", joinLimit(dropped, 6))
 	}
-	for i, t := range tiers {
-		v := Inconclusive
-		if !t.table.Verified {
-			v = Unverified
-		}
-		note := t.table.Source.Origin
-		if v == Unverified {
-			note = "this project has not observed these values on a system of the configuration described, so they carry no weight; " + note
-		}
-		s.Rows = append(s.Rows, Row{
-			Label: t.label,
-			Value: strconv.Itoa(counts[i]) + " of " + strconv.Itoa(len(t.table.Values)),
-			Note:  anomalyNote,
-		})
+	for i, t := range tiers.tiers {
+		s.add(t.label, outOf(tiers.counts[i], len(t.table.Values)))
 	}
 	if len(res.Skipped) > 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "resolved but not read as evidence",
-			Value: joinLimit(res.Skipped, 6),
-			Note:  anomalyNote,
-		})
+		s.add("resolved but not read as evidence", joinLimit(res.Skipped, 6))
 	}
-	s.Rows = append(s.Rows, Row{
-		Label: "operating system claimed",
-		Value: c.Family.String(),
-		Note:  anomalyNote,
-	})
+	s.add("operating system claimed", c.Family.String())
 
 	if !haveControls {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the width probe carried no invented-name controls",
-			Note:  anomalyNote,
-		})
+		s.conclude("the width probe carried no invented-name controls")
 		return s
 	}
 	if len(controlsResolved) > 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the width probe resolved a family that does not exist",
-			Note:  anomalyNote,
-		})
+		s.conclude("the width probe resolved a family that does not exist")
 		return s
 	}
 	if !c.Agreed || c.Family != osWindows {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "no comparison was made",
-			Note:  anomalyNote,
-		})
+		s.conclude("no comparison was made")
 		return s
 	}
-
-	fl := osfont.ReleaseFloor(resolved)
-
-	anyVerifiedPresent, anyVerified := false, false
-	for i, t := range tiers {
-		if !t.table.Verified {
-			continue
-		}
-		anyVerified = true
-		if counts[i] > 0 {
-			anyVerifiedPresent = true
-		}
-	}
-	if anyVerified && !anyVerifiedPresent {
+	if tiers.verifiedTiersAllEmpty() {
 		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "Windows is claimed and no family the vendor publishes for Windows resolved",
-			Note:  anomalyNote,
-		})
+		s.conclude("Windows is claimed and no family the vendor publishes for Windows resolved")
 		return s
 	}
 
-	if len(fl.AboveGap) > 0 {
-		s.Rows = append(s.Rows, Row{
-			Label: "reported above a gap",
-			Value: joinLimit(fl.AboveGap, 3),
-			Note:  anomalyNote,
-		})
+	floor := osfont.ReleaseFloor(resolved)
+	if len(floor.AboveGap) > 0 {
+		s.add("reported above a gap", joinLimit(floor.AboveGap, 3))
 	}
 	s.Determination = Consistent
-	if fl.Release == "" {
-		s.Rows = append(s.Rows, Row{
-			Label: "release floor",
-			Value: "no release narrowed",
-			Note:  anomalyNote,
-		})
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the resolved families are compatible with a genuine Windows release",
-			Note:  anomalyNote,
-		})
-		return s
+	if floor.Release == "" {
+		s.add("release floor", "no release narrowed")
+	} else {
+		s.add("release floor", "Windows "+floor.Release+" or later")
 	}
-	s.Rows = append(s.Rows, Row{
-		Label: "release floor",
-		Value: "Windows " + fl.Release + " or later",
-		Note:  anomalyNote,
-	})
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "the resolved families are compatible with a genuine Windows release",
-		Note:  anomalyNote,
-	})
+	s.conclude("the resolved families are compatible with a genuine Windows release")
 	return s
 }
