@@ -1,6 +1,9 @@
 package scan
 
-import "strconv"
+import (
+	"strconv"
+	_ "time/tzdata"
+)
 
 type scopeFact struct {
 	label string
@@ -46,7 +49,7 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 			} else if r.ran(sc.id) {
 				reason = "errored"
 			}
-			s.Rows = append(s.Rows, Row{Label: sc.label, Value: reason, Note: anomalyNote})
+			s.add(sc.label, reason)
 			continue
 		}
 		values[sc.id] = v
@@ -54,18 +57,10 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 	}
 	if av, ok := r.value("scope.availability"); ok {
 		if created, ok := nameSet(av, "created", "available", "ok"); ok {
-			s.Rows = append(s.Rows, Row{
-				Label: "scopes the browser created",
-				Value: joinLimit(created, 8),
-				Note:  anomalyNote,
-			})
+			s.add("scopes the browser created", joinLimit(created, 8))
 		}
 	}
-	s.Rows = append(s.Rows, Row{
-		Label: "scopes compared",
-		Value: strconv.Itoa(len(live)),
-		Note:  anomalyNote,
-	})
+	s.add("scopes compared", strconv.Itoa(len(live)))
 	if len(live) < 2 {
 		return s
 	}
@@ -87,11 +82,11 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 		if len(seen) == 1 {
 			for v, where := range seen {
 				if len(where) < 2 {
-					s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: anomalyNote})
+					s.add(f.label, clip(v, 200))
 					continue
 				}
 				compared++
-				s.Rows = append(s.Rows, Row{Label: f.label, Value: clip(v, 200), Note: anomalyNote})
+				s.add(f.label, clip(v, 200))
 			}
 			continue
 		}
@@ -104,28 +99,20 @@ func sectionScopes(r Request, _ Inputs, _ claim) Section {
 			}
 			note += joinLimit(seen[v], 3) + ": " + clip(v, 120)
 		}
-		s.Rows = append(s.Rows, Row{Label: f.label, Value: "the scopes disagree", Note: anomalyNote})
+		s.add(f.label, "the scopes disagree")
 	}
 
 	if compared == 0 {
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "no fact was reported by two scopes", Note: anomalyNote})
+		s.conclude("no fact was reported by two scopes")
 		return s
 	}
 	if disagreed > 0 {
 		s.Determination = Instrumented
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: strconv.Itoa(disagreed) + " of " + strconv.Itoa(compared) + " facts differ between scopes of the same page",
-			Note:  anomalyNote,
-		})
+		s.conclude(outOf(disagreed, compared) + " facts differ between scopes of the same page")
 		return s
 	}
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "every fact reported by two or more scopes matched",
-		Note:  anomalyNote,
-	})
+	s.conclude("every fact reported by two or more scopes matched")
 	return s
 }
 
