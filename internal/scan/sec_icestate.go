@@ -1,92 +1,43 @@
 package scan
 
+import (
+	_ "time/tzdata"
+)
+
 func sectionICEState(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}
 
-	raw, ok := r.value("webrtc.ice")
+	ice, ok := readICE(r)
 	if !ok {
-		s.Rows = append(s.Rows, Row{
-			Label: "gathering against its own state machine",
-			Value: "not collected",
-			Note:  anomalyNote,
-		})
+		s.add("gathering against its own state machine", "not collected")
+		return s
+	}
+	if !ice.reportsItsStateMachine() {
+		s.add("gathering against its own state machine", "not reported")
 		return s
 	}
 
-	described, haveDescribed := boolean(raw, "localDescriptionSet")
-	finalState, haveState := str(raw, "finalState")
-	sdpLines, haveSDP := num(raw, "sdpCandidateLines")
-	statsCount, haveStats := num(raw, "statsLocalCandidates")
-	gatheringEvents, haveEvents := num(raw, "gatheringEvents")
-
-	if !haveDescribed || !haveState || !haveEvents || (!haveSDP && !haveStats) {
-		s.Rows = append(s.Rows, Row{
-			Label: "gathering against its own state machine",
-			Value: "not reported",
-			Note:  anomalyNote,
-		})
-		return s
+	s.add("a local description was accepted", answerOrAbsent(ice.described, true))
+	s.add("gathering state, at the end of this reading's watch", valueOrAbsent(ice.finalState))
+	s.add("state changes the connection announced", itoa(ice.gatheringEvents))
+	if ice.haveSDP {
+		s.add("candidate lines in the connection's own local description", itoa(ice.sdpLines))
+	}
+	if ice.haveStats {
+		s.add("local candidates in the connection's own statistics", itoa(ice.statsCandidates))
 	}
 
-	s.Rows = append(s.Rows, Row{
-		Label: "a local description was accepted",
-		Value: answerOrAbsent(described, true),
-		Note:  anomalyNote,
-	})
-	s.Rows = append(s.Rows, Row{
-		Label: "gathering state, at the end of this reading's watch",
-		Value: valueOrAbsent(finalState),
-		Note:  anomalyNote,
-	})
-	s.Rows = append(s.Rows, Row{
-		Label: "state changes the connection announced",
-		Value: itoa(gatheringEvents),
-		Note:  anomalyNote,
-	})
-	if haveSDP {
-		s.Rows = append(s.Rows, Row{
-			Label: "candidate lines in the connection's own local description",
-			Value: itoa(sdpLines),
-			Note:  anomalyNote,
-		})
-	}
-	if haveStats {
-		s.Rows = append(s.Rows, Row{
-			Label: "local candidates in the connection's own statistics",
-			Value: itoa(statsCount),
-			Note:  anomalyNote,
-		})
-	}
-
-	gathered := (haveSDP && sdpLines > 0) || (haveStats && statsCount > 0)
-	neverBegan := described && finalState == "new" && gatheringEvents == 0
-	heldButNeverDescribed := described && finalState == "complete" &&
-		haveStats && statsCount > 0 && haveSDP && sdpLines == 0
-
-	if heldButNeverDescribed {
+	if ice.heldWhatItDescribesAsNone() {
 		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "this connection holds candidates it reports it has finished gathering, and describes itself as carrying none",
-			Note:  anomalyNote,
-		})
+		s.conclude("this connection holds candidates it reports it has finished gathering, and describes itself as carrying none")
 		return s
 	}
-
-	if !neverBegan || !gathered {
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the state this connection reports and the candidates it holds do not disagree",
-			Note:  anomalyNote,
-		})
+	if !ice.gatheredBeforeItBegan() {
+		s.conclude("the state this connection reports and the candidates it holds do not disagree")
 		return s
 	}
 
 	s.Determination, s.weight = Contradiction, weightOnlyDeliberate
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "this connection holds candidates it can only have gathered, and reports that gathering never began",
-		Note:  anomalyNote,
-	})
+	s.conclude("this connection holds candidates it can only have gathered, and reports that gathering never began")
 	return s
 }
