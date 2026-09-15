@@ -16,11 +16,7 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 	raw, ok := r.value("perm.state")
 	if !ok {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "permission state",
-			Value: "not collected",
-			Note:  anomalyNote,
-		})
+		s.add("permission state", "not collected")
 		return s
 	}
 
@@ -37,47 +33,31 @@ func sectionPermissions(r Request, _ Inputs, _ claim) Section {
 		[]string{"notificationsActual"},
 	)
 
-	s.Rows = append(s.Rows, Row{Label: "Permissions.query for notifications", Value: valueOrAbsent(queried), Note: anomalyNote})
-	s.Rows = append(s.Rows, Row{Label: "Notification.permission", Value: valueOrAbsent(actual), Note: anomalyNote})
+	s.add("Permissions.query for notifications", valueOrAbsent(queried))
+	s.add("Notification.permission", valueOrAbsent(actual))
 
 	if queried == "" && actual == "" {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "neither reading was reported",
-			Note:  anomalyNote,
-		})
+		s.conclude("neither reading was reported")
 		return s
 	}
 	if queried == "" || actual == "" {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{Label: "conclusion", Value: "only one of the two readings was reported", Note: anomalyNote})
+		s.conclude("only one of the two readings was reported")
 		return s
 	}
 	want, known := notificationEquivalent[queried]
 	if !known {
 		s.Determination = Unverified
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the reported state is not one this project's table knows",
-			Note:  anomalyNote,
-		})
+		s.conclude("the reported state is not one this project's table knows")
 		return s
 	}
 	if want != actual {
 		s.Determination = Contradiction
-		s.Rows = append(s.Rows, Row{
-			Label: "conclusion",
-			Value: "the two interfaces report different states for one permission",
-			Note:  anomalyNote,
-		})
+		s.conclude("the two interfaces report different states for one permission")
 		return s
 	}
 	s.Determination = Consistent
-	s.Rows = append(s.Rows, Row{
-		Label: "conclusion",
-		Value: "both interfaces report the same permission state",
-		Note:  anomalyNote,
-	})
+	s.conclude("both interfaces report the same permission state")
 	return s
 }
