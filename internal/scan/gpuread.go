@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	_ "time/tzdata"
 
 	"github.com/N4darae/anti-mage/reference"
 )

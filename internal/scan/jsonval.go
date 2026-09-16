@@ -3,7 +3,6 @@ package scan
 import (
 	"math"
 	"sort"
-	_ "time/tzdata"
 )
 
 func field(v any, path ...string) (any, bool) {

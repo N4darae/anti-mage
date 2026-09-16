@@ -5,7 +5,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	_ "time/tzdata"
 )
 
 func noted(label, value string) Row {

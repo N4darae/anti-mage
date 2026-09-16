@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 func sectionICEState(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}
 

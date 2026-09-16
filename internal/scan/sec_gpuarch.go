@@ -3,7 +3,6 @@ package scan
 import (
 	"strconv"
 	"strings"
-	_ "time/tzdata"
 )
 
 func sectionGPUArch(r Request, _ Inputs, _ claim) Section {

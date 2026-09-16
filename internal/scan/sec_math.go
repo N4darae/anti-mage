@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 const mathMaxRows = 12
 
 type mathExactResult struct {

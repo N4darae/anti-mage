@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"testing"
-	_ "time/tzdata"
-)
+import "testing"
 
 func TestReadReportsWhyAProbeCouldNotBeRead(t *testing.T) {
 	r := Request{Probes: map[string]Probe{

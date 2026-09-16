@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 func sectionWebGPU(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Inconclusive}
 

@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"math"
-	_ "time/tzdata"
-)
+import "math"
 
 const audioDurationEpsilonSeconds = 1e-6
 

@@ -3,7 +3,6 @@ package scan
 import (
 	"sort"
 	"strconv"
-	_ "time/tzdata"
 )
 
 func sectionCapabilities(r Request, _ Inputs, _ claim) Section {

@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	_ "time/tzdata"
 )
 
 var measuredNativeTargetKeys = []string{

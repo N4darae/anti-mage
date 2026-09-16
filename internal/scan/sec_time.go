@@ -3,7 +3,6 @@ package scan
 import (
 	"strconv"
 	"time"
-	_ "time/tzdata"
 )
 
 const transitionGuard = 48 * time.Hour

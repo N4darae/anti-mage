@@ -3,7 +3,6 @@ package scan
 import (
 	"strconv"
 	"strings"
-	_ "time/tzdata"
 )
 
 const clockMarginMS = 250

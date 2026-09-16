@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 type throwsMandatedCase struct {
 	id    string
 	label string

@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 func sectionViewport(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}
 

@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 var knownIceCandidateTypes = []string{"host", "srflx", "prflx", "relay"}
 
 type iceReading struct {

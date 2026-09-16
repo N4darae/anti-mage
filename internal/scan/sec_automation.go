@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"strconv"
-	_ "time/tzdata"
-)
+import "strconv"
 
 func stackTraceLimitStripped(raw any) (stripped, known bool) {
 	kind, haveKind := str(raw, "captureStackTraceType")

@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"strconv"
-	_ "time/tzdata"
-)
+import "strconv"
 
 func sectionWebRTC(r Request, _ Inputs, _ claim) Section {
 	s := Section{Determination: Unverified}

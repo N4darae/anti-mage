@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 const mediaPathMaxRows = 8
 
 func sectionMediaPaths(r Request, _ Inputs, c claim) Section {

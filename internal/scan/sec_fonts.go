@@ -2,7 +2,6 @@ package scan
 
 import (
 	"strconv"
-	_ "time/tzdata"
 
 	"github.com/N4darae/anti-mage/osfont"
 )

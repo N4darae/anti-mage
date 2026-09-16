@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 type mathExactCase struct {
 	key      string
 	expr     string

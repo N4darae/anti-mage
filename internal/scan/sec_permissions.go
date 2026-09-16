@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 var notificationEquivalent = map[string]string{
 	"granted": "granted",
 	"denied":  "denied",

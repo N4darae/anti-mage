@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 const rectTolerance = 1e-4
 
 type rectPoint struct {

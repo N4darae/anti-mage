@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 const textMetricTolerance = 1e-6
 
 var textMetricFontLevelKeys = []string{

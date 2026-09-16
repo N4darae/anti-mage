@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"math"
-	_ "time/tzdata"
-)
+import "math"
 
 type identity struct {
 	label     string

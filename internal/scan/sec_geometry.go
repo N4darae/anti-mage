@@ -3,7 +3,6 @@ package scan
 import (
 	"math"
 	"strconv"
-	_ "time/tzdata"
 )
 
 const dprTolerance = 1e-3

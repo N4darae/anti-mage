@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"strconv"
-	_ "time/tzdata"
-)
+import "strconv"
 
 type scopeFact struct {
 	label string

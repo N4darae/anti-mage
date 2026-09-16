@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"sort"
-	_ "time/tzdata"
-)
+import "sort"
 
 type nativeReading struct {
 	targets []string

@@ -1,9 +1,5 @@
 package scan
 
-import (
-	_ "time/tzdata"
-)
-
 func sectionPlatform(r Request, _ Inputs, c claim) Section {
 	s := Section{Determination: Inconclusive}
 

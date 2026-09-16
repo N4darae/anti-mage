@@ -1,9 +1,6 @@
 package scan
 
-import (
-	"encoding/json"
-	_ "time/tzdata"
-)
+import "encoding/json"
 
 const (
 	StatusOK          = "ok"
