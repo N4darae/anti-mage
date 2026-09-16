@@ -1,8 +1,6 @@
 package assess
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestDecodeReadsTheObservationsUnderEitherSpelling(t *testing.T) {
 	for _, field := range []string{"probes", "observations"} {

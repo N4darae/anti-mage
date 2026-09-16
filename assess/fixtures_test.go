@@ -1,8 +1,6 @@
 package assess
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 func ok(v string) Observation {
 	return Observation{Status: StatusOK, Value: json.RawMessage(v)}

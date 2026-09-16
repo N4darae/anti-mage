@@ -35,14 +35,14 @@ func Evaluate(env Environment) Assessment {
 	return a
 }
 
+func (e Environment) NamesReported(id string) []string {
+	return scan.Request{Probes: probesOf(e)}.ReportedNames(id)
+}
+
 var statements = map[Determination]string{
 	NotEvaluated: "Nothing that was supplied reached a reading, so this says nothing about this environment.",
 	Insufficient: "Nothing disagreed, and too little was established to characterise this environment either way.",
 	Coherent:     "Everything that could be read agrees with the platform this environment claims.",
 	Discrepant:   "One body of evidence reports two facts that cannot both be true. Everything else that could be read agrees.",
 	Instrumented: "This environment appears modified. Privacy, accessibility and content-blocking tools modify the same surfaces, in large numbers, so this describes the environment and not the person using it.",
-}
-
-func (e Environment) NamesReported(id string) []string {
-	return scan.Request{Probes: probesOf(e)}.ReportedNames(id)
 }

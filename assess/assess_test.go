@@ -213,7 +213,6 @@ func TestScoreIsCoarse(t *testing.T) {
 		}
 	}
 }
-
 func TestSuppliedIsAnEchoAndNothingMore(t *testing.T) {
 	obs := map[string]Observation{
 		"perm.state":            ok(`{"notifications":{"query":"prompt","actual":"default"}}`),
