@@ -44,6 +44,13 @@ func New(o Options) *Server {
 	return s
 }
 
+func (s *Server) routes() {
+	s.mux.HandleFunc("/api/bootstrap", s.handleBootstrap)
+	s.mux.HandleFunc("/bootstrap.json", s.handleBootstrap)
+	s.mux.HandleFunc("/api/scan", s.handleScan)
+	s.mux.HandleFunc("/", s.handleStatic)
+}
+
 func (s *Server) Handler() http.Handler { return s.recoverer(s.headers(s.mux)) }
 
 func (s *Server) ListenAndServe(ctx context.Context) error {
