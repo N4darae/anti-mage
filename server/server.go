@@ -37,10 +37,7 @@ func New(o Options) *Server {
 		o.Log = log.Default()
 	}
 	s := &Server{opts: o, iss: newIssuer(), mux: http.NewServeMux(), logger: o.Log}
-	s.mux.HandleFunc("/api/bootstrap", s.handleBootstrap)
-	s.mux.HandleFunc("/bootstrap.json", s.handleBootstrap)
-	s.mux.HandleFunc("/api/scan", s.handleScan)
-	s.mux.HandleFunc("/", s.handleStatic)
+	s.routes()
 	return s
 }
 
