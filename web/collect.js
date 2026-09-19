@@ -1,10 +1,14 @@
 
-var AM = (function () {
+var AM_CORE = (function () {
   "use strict";
 
-  var PROBE_TIMEOUT_MS = 9000;
-  var ICE_DEADLINE_MS = 5000;
-  var ICE_POLL_MS = 100;
+  var core = {
+    bootstrap: { dates: null, fonts: null, nonce: "", source: "none" },
+    meta: {},
+    probes: [],
+    ids: [],
+    resets: []
+  };
 
   function Unsupported(reason) {
     var e = new Error(reason || "facility not available");
@@ -55,9 +59,43 @@ var AM = (function () {
     });
   }
 
-  var bootstrap = { dates: null, fonts: null, nonce: "", source: "none" };
+  var NATIVE_TAIL = /\{\s*\[native code\]\s*\}\s*$/;
 
-  var meta = {};
+  function mq(q) {
+    return window.matchMedia(q).matches;
+  }
+
+  core.Unsupported = Unsupported;
+  core.unsupported = unsupported;
+  core.reasonOf = reasonOf;
+  core.attempt = attempt;
+  core.withTimeout = withTimeout;
+  core.NATIVE_TAIL = NATIVE_TAIL;
+  core.mq = mq;
+
+  core.register = function (list) {
+    for (var i = 0; i < list.length; i++) {
+      core.probes.push(list[i]);
+      core.ids.push(list[i].id);
+    }
+  };
+
+  core.onReset = function (fn) {
+    core.resets.push(fn);
+  };
+
+  return core;
+})();
+
+var AM = (function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var reasonOf = core.reasonOf;
+  var withTimeout = core.withTimeout;
+  var probes = core.probes;
+
+  var PROBE_TIMEOUT_MS = 9000;
 
   function readInlineBootstrap() {
     var el = document.getElementById("am-bootstrap");
@@ -158,9 +196,90 @@ var AM = (function () {
       });
   }
 
+  function startProbe(p) {
+    return new Promise(function (resolve) {
+      resolve(p.prime ? p.prime() : p.run());
+    });
+  }
+
+  function runProbe(p, started) {
+    return withTimeout(
+      started || startProbe(p),
+      PROBE_TIMEOUT_MS,
+      p.id
+    ).then(
+      function (v) {
+        return { status: "ok", value: v };
+      },
+      function (e) {
+        if (e && e.amUnsupported) return { status: "unsupported", value: { reason: reasonOf(e) } };
+        return { status: "error", value: { reason: reasonOf(e) } };
+      }
+    );
+  }
+
+  function run(onProgress) {
+    core.resets.forEach(function (fn) {
+      fn();
+    });
+    core.meta = {};
+    return loadBootstrap().then(function (b) {
+      core.bootstrap = b;
+      var out = {};
+      var started = {};
+      probes.forEach(function (p) {
+        if (!p.prime) return;
+        var pending = startProbe(p);
+        pending.catch(function () {});
+        started[p.id] = pending;
+      });
+      var chain = Promise.resolve();
+      probes.forEach(function (p, i) {
+        chain = chain.then(function () {
+          if (onProgress) onProgress(i, probes.length, p.id);
+          return runProbe(p, started[p.id]).then(function (r) {
+            out[p.id] = r;
+          });
+        });
+      });
+      return chain.then(function () {
+        if (onProgress) onProgress(probes.length, probes.length, null);
+        return {
+          probes: out,
+          meta: core.meta,
+          nonce: b.nonce || "",
+          bootstrapSource: b.source,
+          ids: probes.map(function (p) {
+            return p.id;
+          })
+        };
+      });
+    });
+  }
+
+  function groupOf(id) {
+    for (var i = 0; i < probes.length; i++) {
+      if (probes[i].id === id) return probes[i].group;
+    }
+    return String(id).split(".")[0];
+  }
+
+  return {
+    run: run,
+    ids: core.ids,
+    groupOf: groupOf
+  };
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+
   function fontInput() {
     var d = AM_FONT_DATA;
-    var b = bootstrap && bootstrap.fonts;
+    var b = core.bootstrap && core.bootstrap.fonts;
     if (!b) return { data: d, source: "built-in table" };
     var sources = {};
     function pick(key, supplied) {
@@ -229,6 +348,108 @@ var AM = (function () {
       return null;
     }
   }
+
+  core.onReset(function () {
+    measureCache = null;
+  });
+
+  core.register([
+    {
+      id: "font.resolved",
+      group: "font",
+      run: function () {
+        var input = fontInput();
+        var d = input.data;
+        var m = measurer();
+        var families = {};
+        var resolvedCount = 0;
+        for (var i = 0; i < d.families.length; i++) {
+          var f = d.families[i];
+          var w = differsFromGenerics(m, f, d.bases, d.measureString);
+          families[f] = { width: w, check: fontsCheck(f) };
+          if (w) resolvedCount += 1;
+        }
+        core.meta.font = {
+          inputSource: input.source,
+          inputSources: input.sources || null,
+          measureString: d.measureString,
+          bases: d.bases,
+          probed: d.families.length,
+          resolvedCount: resolvedCount
+        };
+        return families;
+      }
+    },
+    {
+      id: "font.coverage",
+      group: "font",
+      run: function () {
+        var input = fontInput();
+        var d = input.data;
+        if (!d.coverage || !d.coverage.length) unsupported("no coverage input was supplied");
+        var m = measurer();
+        var out = {};
+        var order = [];
+        for (var i = 0; i < d.coverage.length; i++) {
+          var c = d.coverage[i];
+          var covers = differsFromGenerics(m, c.family, d.bases, c.text);
+          var width = differsFromGenerics(m, c.family, d.bases, d.measureString);
+          out[c.family] = {
+            covers: covers,
+            width: width,
+            codepoints: c.codepoints,
+            scripts: c.scripts,
+            agree: covers === width
+          };
+          order.push(c.family);
+        }
+        core.meta.fontCoverage = { inputSource: (input.sources && input.sources.coverage) || input.source, order: order };
+        return out;
+      }
+    },
+    {
+      id: "font.controls",
+      group: "font",
+      run: function () {
+        var input = fontInput();
+        var d = input.data;
+        if (!d.controls || !d.controls.length) unsupported("no control name was supplied");
+        var m = measurer();
+        var out = {};
+        var widthResolved = [];
+        var checkTrue = [];
+        var checkAvailable = false;
+        for (var i = 0; i < d.controls.length; i++) {
+          var name = d.controls[i];
+          var w = differsFromGenerics(m, name, d.bases, d.measureString);
+          var ch = fontsCheck(name);
+          out[name] = { width: w, check: ch };
+          if (w) widthResolved.push(name);
+          if (ch === true) checkTrue.push(name);
+          if (ch !== null) checkAvailable = true;
+        }
+        core.meta.fontControls = {
+          inputSource: (input.sources && input.sources.controls) || input.source,
+          order: d.controls.slice(),
+          count: d.controls.length,
+          widthResolved: widthResolved,
+          checkAvailable: checkAvailable,
+          checkTrueCount: checkTrue.length
+        };
+        return out;
+      }
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+  var NATIVE_TAIL = core.NATIVE_TAIL;
 
   var nativeCache = null;
 
@@ -411,8 +632,6 @@ var AM = (function () {
     return list;
   }
 
-  var NATIVE_TAIL = /\{\s*\[native code\]\s*\}\s*$/;
-
   function sortedKeys(list) {
     return list
       .map(function (k) {
@@ -577,6 +796,133 @@ var AM = (function () {
     nativeCache = { globals: globals, targets: results };
     return nativeCache;
   }
+
+  core.onReset(function () {
+    nativeCache = null;
+  });
+
+  core.register([
+    {
+      id: "native.tostring",
+      group: "native",
+      run: function () {
+        var n = collectNatives();
+        core.meta.native = { globals: n.globals, order: n.targets.map(function (t) { return t.key; }) };
+        var out = {};
+        n.targets.forEach(function (t) {
+          var rec = { status: t.status };
+          if (t.reason) rec.reason = t.reason;
+          if (t.tostring) {
+            if (t.tostring.status === "ok") {
+              rec.source = t.tostring.source;
+              rec.native = t.tostring.native;
+              rec.fnName = t.tostring.fnName;
+              rec.fnLength = t.tostring.fnLength;
+              rec.chars = t.tostring.length;
+              rec.selfAgrees = t.tostring.selfAgrees;
+              rec.hasOwnToString = t.tostring.hasOwnToString;
+            } else if (t.tostring.reason) {
+              rec.reason = t.tostring.reason;
+            }
+          }
+          out[t.key] = rec;
+        });
+        return out;
+      }
+    },
+    {
+      id: "native.ownkeys",
+      group: "native",
+      run: function () {
+        var n = collectNatives();
+        var out = {};
+        n.targets.forEach(function (t) {
+          var rec = { status: t.status };
+          if (t.reason) rec.reason = t.reason;
+          if (t.ownkeys && t.ownkeys.status === "ok") {
+            rec.kind = t.ownkeys.kind;
+            rec.ownKeys = t.ownkeys.ownKeys;
+            rec.symbolKeys = t.ownkeys.symbolKeys;
+            rec.getOwnPropertyNames = t.ownkeys.getOwnPropertyNames;
+            rec.descriptors = t.ownkeys.descriptors;
+            rec.agree = t.ownkeys.agree;
+          } else if (t.ownkeys && t.ownkeys.reason) {
+            rec.reason = t.ownkeys.reason;
+          }
+          out[t.key] = rec;
+        });
+        return out;
+      }
+    },
+    {
+      id: "native.descriptor",
+      group: "native",
+      run: function () {
+        var n = collectNatives();
+        var out = {};
+        n.targets.forEach(function (t) {
+          var rec = { status: t.status, declaredAs: t.kind };
+          if (t.reason) rec.reason = t.reason;
+          var d = t.descriptor;
+          if (d) {
+            rec.onPrototype = d.onPrototype;
+            rec.kind = d.kind;
+            rec.expectedKind = d.expectedKind;
+            rec.kindAsExpected = d.kindAsExpected;
+            rec.enumerable = d.enumerable;
+            rec.configurable = d.configurable;
+            rec.writable = d.writable;
+            rec.hasGetter = d.hasGetter;
+            rec.hasSetter = d.hasSetter;
+            rec.shadowedOnInstance = d.ownOnInstance;
+          }
+          if (t.prototypeIsFunctionPrototype !== undefined) {
+            rec.prototypeIsFunctionPrototype = t.prototypeIsFunctionPrototype;
+          }
+          out[t.key] = rec;
+        });
+        return out;
+      }
+    },
+    {
+      id: "native.receiver",
+      group: "native",
+      run: function () {
+        var n = collectNatives();
+        var out = {};
+        n.targets.forEach(function (t) {
+          var rec = { status: t.status };
+          if (t.reason) rec.reason = t.reason;
+          var r = t.receiver;
+          if (r) {
+            rec.skipped = !!r.skipped;
+            if (!r.skipped) {
+              rec.threw = r.threw;
+              rec.isTypeError = r.isTypeError;
+              if (r.name) rec.name = r.name;
+              if (r.message) rec.message = r.message;
+              if (r.resultType) rec.resultType = r.resultType;
+            } else if (r.reason) {
+              rec.reason = r.reason;
+            }
+          } else {
+            rec.skipped = true;
+          }
+          out[t.key] = rec;
+        });
+        return out;
+      }
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var Unsupported = core.Unsupported;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
 
   function amFacts(tag, g) {
     var out = { tag: tag };
@@ -908,311 +1254,11 @@ var AM = (function () {
     });
   }
 
-  function mq(q) {
-    return window.matchMedia(q).matches;
-  }
+  core.onReset(function () {
+    scopeCache = null;
+  });
 
-  function bisectFloat(pred, lo, hi, iterations) {
-    if (!attempt(function () {
-      return pred(lo);
-    }, false)) {
-      return null;
-    }
-    if (attempt(function () {
-      return pred(hi);
-    }, true)) {
-      return null;
-    }
-    for (var i = 0; i < iterations; i++) {
-      var mid = (lo + hi) / 2;
-      if (pred(mid)) lo = mid;
-      else hi = mid;
-    }
-    return Math.round(((lo + hi) / 2) * 100000) / 100000;
-  }
-
-  function bisectInt(pred, lo, hi) {
-    if (!attempt(function () {
-      return pred(lo);
-    }, false)) {
-      return null;
-    }
-    if (attempt(function () {
-      return pred(hi);
-    }, true)) {
-      return null;
-    }
-    while (hi - lo > 1) {
-      var mid = Math.floor((lo + hi) / 2);
-      if (pred(mid)) lo = mid;
-      else hi = mid;
-    }
-    return lo;
-  }
-
-  function firstMatching(queries) {
-    for (var i = 0; i < queries.length; i++) {
-      var q = queries[i][1];
-      var hit = attempt(function () {
-        return mq(q);
-      }, false);
-      if (hit) return queries[i][0];
-    }
-    return null;
-  }
-
-  var CODECS = [
-    ["H.264 baseline, MP4", 'video/mp4; codecs="avc1.42E01E"', "video"],
-    ["H.264 high, MP4", 'video/mp4; codecs="avc1.640028"', "video"],
-    ["HEVC, MP4", 'video/mp4; codecs="hev1.1.6.L93.B0"', "video"],
-    ["VP8, WebM", 'video/webm; codecs="vp8"', "video"],
-    ["VP9, WebM", 'video/webm; codecs="vp9"', "video"],
-    ["AV1, WebM", 'video/webm; codecs="av01.0.04M.08"', "video"],
-    ["Theora, Ogg", 'video/ogg; codecs="theora"', "video"],
-    ["AAC-LC, MP4", 'audio/mp4; codecs="mp4a.40.2"', "audio"],
-    ["MP3", "audio/mpeg", "audio"],
-    ["Opus, WebM", 'audio/webm; codecs="opus"', "audio"],
-    ["Vorbis, Ogg", 'audio/ogg; codecs="vorbis"', "audio"],
-    ["FLAC", "audio/flac", "audio"]
-  ];
-
-  var RECORDER_PREFIX = "MediaRecorder ";
-
-  var RECORDER_TYPES = [
-    "video/webm",
-    "video/webm;codecs=vp8",
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=h264",
-    "video/mp4",
-    "audio/webm;codecs=opus",
-    "audio/ogg;codecs=opus"
-  ];
-
-  var RESIDUE_PATTERNS = [
-    ["random-suffixed injected symbol", /^\$?cdc_[A-Za-z0-9]{16,}$/],
-    ["hook verb form", /^__[A-Za-z]+_(evaluate|unwrapped|script_fn|script_func|script_function)$/],
-    ["webdriver-prefixed global", /^__(web)?driver[_A-Z]/],
-    ["automation-controller global", /^__domAutomation/]
-  ];
-
-  function scanKeys(keys) {
-    var hits = [];
-    for (var i = 0; i < keys.length; i++) {
-      for (var p = 0; p < RESIDUE_PATTERNS.length; p++) {
-        if (RESIDUE_PATTERNS[p][1].test(keys[i])) {
-          hits.push({ name: keys[i], pattern: RESIDUE_PATTERNS[p][0] });
-          break;
-        }
-      }
-    }
-    return hits;
-  }
-
-  function prefixedKeys(keys) {
-    return keys
-      .filter(function (k) {
-        return /^[_$]/.test(k) && k !== "$" && k !== "_";
-      })
-      .slice(0, 60);
-  }
-
-  var probes = [
-    {
-      id: "font.resolved",
-      group: "font",
-      run: function () {
-        var input = fontInput();
-        var d = input.data;
-        var m = measurer();
-        var families = {};
-        var resolvedCount = 0;
-        for (var i = 0; i < d.families.length; i++) {
-          var f = d.families[i];
-          var w = differsFromGenerics(m, f, d.bases, d.measureString);
-          families[f] = { width: w, check: fontsCheck(f) };
-          if (w) resolvedCount += 1;
-        }
-        meta.font = {
-          inputSource: input.source,
-          inputSources: input.sources || null,
-          measureString: d.measureString,
-          bases: d.bases,
-          probed: d.families.length,
-          resolvedCount: resolvedCount
-        };
-        return families;
-      }
-    },
-    {
-      id: "font.coverage",
-      group: "font",
-      run: function () {
-        var input = fontInput();
-        var d = input.data;
-        if (!d.coverage || !d.coverage.length) unsupported("no coverage input was supplied");
-        var m = measurer();
-        var out = {};
-        var order = [];
-        for (var i = 0; i < d.coverage.length; i++) {
-          var c = d.coverage[i];
-          var covers = differsFromGenerics(m, c.family, d.bases, c.text);
-          var width = differsFromGenerics(m, c.family, d.bases, d.measureString);
-          out[c.family] = {
-            covers: covers,
-            width: width,
-            codepoints: c.codepoints,
-            scripts: c.scripts,
-            agree: covers === width
-          };
-          order.push(c.family);
-        }
-        meta.fontCoverage = { inputSource: (input.sources && input.sources.coverage) || input.source, order: order };
-        return out;
-      }
-    },
-    {
-      id: "font.controls",
-      group: "font",
-      run: function () {
-        var input = fontInput();
-        var d = input.data;
-        if (!d.controls || !d.controls.length) unsupported("no control name was supplied");
-        var m = measurer();
-        var out = {};
-        var widthResolved = [];
-        var checkTrue = [];
-        var checkAvailable = false;
-        for (var i = 0; i < d.controls.length; i++) {
-          var name = d.controls[i];
-          var w = differsFromGenerics(m, name, d.bases, d.measureString);
-          var ch = fontsCheck(name);
-          out[name] = { width: w, check: ch };
-          if (w) widthResolved.push(name);
-          if (ch === true) checkTrue.push(name);
-          if (ch !== null) checkAvailable = true;
-        }
-        meta.fontControls = {
-          inputSource: (input.sources && input.sources.controls) || input.source,
-          order: d.controls.slice(),
-          count: d.controls.length,
-          widthResolved: widthResolved,
-          checkAvailable: checkAvailable,
-          checkTrueCount: checkTrue.length
-        };
-        return out;
-      }
-    },
-    {
-      id: "native.tostring",
-      group: "native",
-      run: function () {
-        var n = collectNatives();
-        meta.native = { globals: n.globals, order: n.targets.map(function (t) { return t.key; }) };
-        var out = {};
-        n.targets.forEach(function (t) {
-          var rec = { status: t.status };
-          if (t.reason) rec.reason = t.reason;
-          if (t.tostring) {
-            if (t.tostring.status === "ok") {
-              rec.source = t.tostring.source;
-              rec.native = t.tostring.native;
-              rec.fnName = t.tostring.fnName;
-              rec.fnLength = t.tostring.fnLength;
-              rec.chars = t.tostring.length;
-              rec.selfAgrees = t.tostring.selfAgrees;
-              rec.hasOwnToString = t.tostring.hasOwnToString;
-            } else if (t.tostring.reason) {
-              rec.reason = t.tostring.reason;
-            }
-          }
-          out[t.key] = rec;
-        });
-        return out;
-      }
-    },
-    {
-      id: "native.ownkeys",
-      group: "native",
-      run: function () {
-        var n = collectNatives();
-        var out = {};
-        n.targets.forEach(function (t) {
-          var rec = { status: t.status };
-          if (t.reason) rec.reason = t.reason;
-          if (t.ownkeys && t.ownkeys.status === "ok") {
-            rec.kind = t.ownkeys.kind;
-            rec.ownKeys = t.ownkeys.ownKeys;
-            rec.symbolKeys = t.ownkeys.symbolKeys;
-            rec.getOwnPropertyNames = t.ownkeys.getOwnPropertyNames;
-            rec.descriptors = t.ownkeys.descriptors;
-            rec.agree = t.ownkeys.agree;
-          } else if (t.ownkeys && t.ownkeys.reason) {
-            rec.reason = t.ownkeys.reason;
-          }
-          out[t.key] = rec;
-        });
-        return out;
-      }
-    },
-    {
-      id: "native.descriptor",
-      group: "native",
-      run: function () {
-        var n = collectNatives();
-        var out = {};
-        n.targets.forEach(function (t) {
-          var rec = { status: t.status, declaredAs: t.kind };
-          if (t.reason) rec.reason = t.reason;
-          var d = t.descriptor;
-          if (d) {
-            rec.onPrototype = d.onPrototype;
-            rec.kind = d.kind;
-            rec.expectedKind = d.expectedKind;
-            rec.kindAsExpected = d.kindAsExpected;
-            rec.enumerable = d.enumerable;
-            rec.configurable = d.configurable;
-            rec.writable = d.writable;
-            rec.hasGetter = d.hasGetter;
-            rec.hasSetter = d.hasSetter;
-            rec.shadowedOnInstance = d.ownOnInstance;
-          }
-          if (t.prototypeIsFunctionPrototype !== undefined) {
-            rec.prototypeIsFunctionPrototype = t.prototypeIsFunctionPrototype;
-          }
-          out[t.key] = rec;
-        });
-        return out;
-      }
-    },
-    {
-      id: "native.receiver",
-      group: "native",
-      run: function () {
-        var n = collectNatives();
-        var out = {};
-        n.targets.forEach(function (t) {
-          var rec = { status: t.status };
-          if (t.reason) rec.reason = t.reason;
-          var r = t.receiver;
-          if (r) {
-            rec.skipped = !!r.skipped;
-            if (!r.skipped) {
-              rec.threw = r.threw;
-              rec.isTypeError = r.isTypeError;
-              if (r.name) rec.name = r.name;
-              if (r.message) rec.message = r.message;
-              if (r.resultType) rec.resultType = r.resultType;
-            } else if (r.reason) {
-              rec.reason = r.reason;
-            }
-          } else {
-            rec.skipped = true;
-          }
-          out[t.key] = rec;
-        });
-        return out;
-      }
-    },
+  core.register([
     {
       id: "scope.main",
       group: "scope",
@@ -1267,7 +1313,20 @@ var AM = (function () {
           return out;
         });
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+  var withTimeout = core.withTimeout;
+
+  core.register([
     {
       id: "gpu.renderer",
       group: "gpu",
@@ -1347,7 +1406,57 @@ var AM = (function () {
           return base;
         });
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+  var withTimeout = core.withTimeout;
+
+  var ICE_DEADLINE_MS = 5000;
+  var ICE_POLL_MS = 100;
+
+  function sdpCandidateLines(pc) {
+    var sdp = attempt(function () {
+      return pc.localDescription ? pc.localDescription.sdp : null;
+    }, null);
+    if (typeof sdp !== "string") return -1;
+    return (sdp.match(/^a=candidate:/gm) || []).length;
+  }
+
+  function countLocalCandidates(pc) {
+    var found = sdpCandidateLines(pc);
+    var lines = found < 0 ? null : found;
+    var stats = attempt(function () {
+      return pc.getStats();
+    }, null);
+    if (!stats || typeof stats.then !== "function") {
+      return Promise.resolve({ sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false });
+    }
+    return withTimeout(stats, 2000, "getStats").then(
+      function (report) {
+        var n = 0;
+        attempt(function () {
+          report.forEach(function (entry) {
+            if (entry && entry.type === "local-candidate") n += 1;
+          });
+          return true;
+        }, null);
+        return { sdpCandidateLines: lines, statsLocalCandidates: n, statsRead: true };
+      },
+      function () {
+        return { sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false };
+      }
+    );
+  }
+
+  core.register([
     {
       id: "webrtc.ice",
       group: "webrtc",
@@ -1468,7 +1577,19 @@ var AM = (function () {
             });
           });
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var attempt = core.attempt;
+  var withTimeout = core.withTimeout;
+
+  core.register([
     {
       id: "canvas.serial",
       group: "canvas",
@@ -1599,7 +1720,17 @@ var AM = (function () {
             return out;
           });
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+
+  core.register([
     {
       id: "engine.features",
       group: "engine",
@@ -1638,7 +1769,68 @@ var AM = (function () {
         if (!Object.keys(out).length) unsupported("no capability could be evaluated in this context");
         return out;
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var attempt = core.attempt;
+  var mq = core.mq;
+
+  function bisectFloat(pred, lo, hi, iterations) {
+    if (!attempt(function () {
+      return pred(lo);
+    }, false)) {
+      return null;
+    }
+    if (attempt(function () {
+      return pred(hi);
+    }, true)) {
+      return null;
+    }
+    for (var i = 0; i < iterations; i++) {
+      var mid = (lo + hi) / 2;
+      if (pred(mid)) lo = mid;
+      else hi = mid;
+    }
+    return Math.round(((lo + hi) / 2) * 100000) / 100000;
+  }
+
+  function bisectInt(pred, lo, hi) {
+    if (!attempt(function () {
+      return pred(lo);
+    }, false)) {
+      return null;
+    }
+    if (attempt(function () {
+      return pred(hi);
+    }, true)) {
+      return null;
+    }
+    while (hi - lo > 1) {
+      var mid = Math.floor((lo + hi) / 2);
+      if (pred(mid)) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  function firstMatching(queries) {
+    for (var i = 0; i < queries.length; i++) {
+      var q = queries[i][1];
+      var hit = attempt(function () {
+        return mq(q);
+      }, false);
+      if (hit) return queries[i][0];
+    }
+    return null;
+  }
+
+  core.register([
     {
       id: "geom.screen",
       group: "geom",
@@ -1738,7 +1930,29 @@ var AM = (function () {
           ])
         };
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var attempt = core.attempt;
+
+  function longOffsetFor(tz, d) {
+    if (!tz) return null;
+    return attempt(function () {
+      var parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(d);
+      for (var k = 0; k < parts.length; k++) {
+        if (parts[k].type === "timeZoneName") return parts[k].value;
+      }
+      return null;
+    }, null);
+  }
+
+  core.register([
     {
       id: "time.zone",
       group: "time",
@@ -1782,7 +1996,7 @@ var AM = (function () {
       id: "time.offsets",
       group: "time",
       run: function () {
-        var dates = bootstrap && bootstrap.dates;
+        var dates = core.bootstrap && core.bootstrap.dates;
         if (!dates || !dates.length) {
           unsupported("the page bootstrap supplied no sample date");
         }
@@ -1820,8 +2034,8 @@ var AM = (function () {
         rows.forEach(function (r) {
           distinct[r.offsetMinutes] = true;
         });
-        meta.timeOffsets = {
-          datesFrom: (bootstrap && bootstrap.source) || "unknown",
+        core.meta.timeOffsets = {
+          datesFrom: (core.bootstrap && core.bootstrap.source) || "unknown",
           timeZone: tz,
           sampleCount: rows.length,
           unparsedCount: skipped,
@@ -1833,7 +2047,46 @@ var AM = (function () {
         };
         return rows;
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+
+  var CODECS = [
+    ["H.264 baseline, MP4", 'video/mp4; codecs="avc1.42E01E"', "video"],
+    ["H.264 high, MP4", 'video/mp4; codecs="avc1.640028"', "video"],
+    ["HEVC, MP4", 'video/mp4; codecs="hev1.1.6.L93.B0"', "video"],
+    ["VP8, WebM", 'video/webm; codecs="vp8"', "video"],
+    ["VP9, WebM", 'video/webm; codecs="vp9"', "video"],
+    ["AV1, WebM", 'video/webm; codecs="av01.0.04M.08"', "video"],
+    ["Theora, Ogg", 'video/ogg; codecs="theora"', "video"],
+    ["AAC-LC, MP4", 'audio/mp4; codecs="mp4a.40.2"', "audio"],
+    ["MP3", "audio/mpeg", "audio"],
+    ["Opus, WebM", 'audio/webm; codecs="opus"', "audio"],
+    ["Vorbis, Ogg", 'audio/ogg; codecs="vorbis"', "audio"],
+    ["FLAC", "audio/flac", "audio"]
+  ];
+
+  var RECORDER_PREFIX = "MediaRecorder ";
+
+  var RECORDER_TYPES = [
+    "video/webm",
+    "video/webm;codecs=vp8",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=h264",
+    "video/mp4",
+    "audio/webm;codecs=opus",
+    "audio/ogg;codecs=opus"
+  ];
+
+  core.register([
     {
       id: "media.matrix",
       group: "media",
@@ -1882,7 +2135,7 @@ var AM = (function () {
           };
         });
         var facilities = { canPlayType: canPlay, mediaSource: hasMSE, mediaRecorder: hasRecorder, mediaCapabilities: hasCaps };
-        meta.media = {
+        core.meta.media = {
           facilities: facilities,
           codecOrder: rows.map(function (r) {
             return r.label;
@@ -1936,7 +2189,46 @@ var AM = (function () {
           return flatten();
         });
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var attempt = core.attempt;
+  var NATIVE_TAIL = core.NATIVE_TAIL;
+
+  var RESIDUE_PATTERNS = [
+    ["random-suffixed injected symbol", /^\$?cdc_[A-Za-z0-9]{16,}$/],
+    ["hook verb form", /^__[A-Za-z]+_(evaluate|unwrapped|script_fn|script_func|script_function)$/],
+    ["webdriver-prefixed global", /^__(web)?driver[_A-Z]/],
+    ["automation-controller global", /^__domAutomation/]
+  ];
+
+  function scanKeys(keys) {
+    var hits = [];
+    for (var i = 0; i < keys.length; i++) {
+      for (var p = 0; p < RESIDUE_PATTERNS.length; p++) {
+        if (RESIDUE_PATTERNS[p][1].test(keys[i])) {
+          hits.push({ name: keys[i], pattern: RESIDUE_PATTERNS[p][0] });
+          break;
+        }
+      }
+    }
+    return hits;
+  }
+
+  function prefixedKeys(keys) {
+    return keys
+      .filter(function (k) {
+        return /^[_$]/.test(k) && k !== "$" && k !== "_";
+      })
+      .slice(0, 60);
+  }
+
+  core.register([
     {
       id: "auto.residue",
       group: "auto",
@@ -2032,7 +2324,19 @@ var AM = (function () {
         if (typeof flag === "boolean") out.webdriver = flag;
         return out;
       }
-    },
+    }
+  ]);
+})();
+
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+
+  core.register([
     {
       id: "perm.state",
       group: "perm",
@@ -2118,9 +2422,14 @@ var AM = (function () {
         });
       }
     }
-  ];
+  ]);
+})();
 
-  probes.push.apply(probes, (function () {
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+
   function amMathEncode(x) {
     if (typeof x !== "number") return "type:" + typeof x;
     if (Number.isNaN(x)) return "NaN";
@@ -2271,11 +2580,13 @@ var AM = (function () {
     }
   };
 
-    return [exactProbe, repeatProbe];
-  })());
+  core.register([exactProbe, repeatProbe]);
+})();
 
-  probes.push.apply(probes, (function () {
+(function () {
   "use strict";
+
+  var core = AM_CORE;
 
   function amThrowsCtorGlobal(name) {
     switch (name) {
@@ -2517,10 +2828,17 @@ var AM = (function () {
     }
   ];
 
-    return AM_THROWS_PROBES;
-  })());
+  core.register(AM_THROWS_PROBES);
+})();
 
-  probes.push.apply(probes, (function () {
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var attempt = core.attempt;
+  var mq = core.mq;
+
 function mediaPathSalt() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -2803,10 +3121,18 @@ var mediaPathComplementProbe = {
 
 var mediaPathProbes = [mediaPathStylesheetProbe, mediaPathComplementProbe];
 
-    return mediaPathProbes;
-  })());
+  core.register(mediaPathProbes);
+})();
 
-  probes.push.apply(probes, (function () {
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+  var reasonOf = core.reasonOf;
+  var attempt = core.attempt;
+  var withTimeout = core.withTimeout;
+
 function audioOfflineCtor() {
   if (typeof OfflineAudioContext === "function") return OfflineAudioContext;
   if (typeof window !== "undefined" && typeof window.webkitOfflineAudioContext === "function") {
@@ -3068,10 +3394,16 @@ var AUDIO_PROBES = [
   }
 ];
 
-    return AUDIO_PROBES;
-  })());
+  core.register(AUDIO_PROBES);
+})();
 
-  probes.push.apply(probes, [
+(function () {
+  "use strict";
+
+  var core = AM_CORE;
+  var unsupported = core.unsupported;
+
+  core.register([
 {
   id: "rect.identities",
   group: "rect",
@@ -3184,125 +3516,4 @@ var AUDIO_PROBES = [
   }
 }
   ]);
-
-  function longOffsetFor(tz, d) {
-    if (!tz) return null;
-    return attempt(function () {
-      var parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(d);
-      for (var k = 0; k < parts.length; k++) {
-        if (parts[k].type === "timeZoneName") return parts[k].value;
-      }
-      return null;
-    }, null);
-  }
-
-  function sdpCandidateLines(pc) {
-    var sdp = attempt(function () {
-      return pc.localDescription ? pc.localDescription.sdp : null;
-    }, null);
-    if (typeof sdp !== "string") return -1;
-    return (sdp.match(/^a=candidate:/gm) || []).length;
-  }
-
-  function countLocalCandidates(pc) {
-    var found = sdpCandidateLines(pc);
-    var lines = found < 0 ? null : found;
-    var stats = attempt(function () {
-      return pc.getStats();
-    }, null);
-    if (!stats || typeof stats.then !== "function") {
-      return Promise.resolve({ sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false });
-    }
-    return withTimeout(stats, 2000, "getStats").then(
-      function (report) {
-        var n = 0;
-        attempt(function () {
-          report.forEach(function (entry) {
-            if (entry && entry.type === "local-candidate") n += 1;
-          });
-          return true;
-        }, null);
-        return { sdpCandidateLines: lines, statsLocalCandidates: n, statsRead: true };
-      },
-      function () {
-        return { sdpCandidateLines: lines, statsLocalCandidates: null, statsRead: false };
-      }
-    );
-  }
-
-  function startProbe(p) {
-    return new Promise(function (resolve) {
-      resolve(p.prime ? p.prime() : p.run());
-    });
-  }
-
-  function runProbe(p, started) {
-    return withTimeout(
-      started || startProbe(p),
-      PROBE_TIMEOUT_MS,
-      p.id
-    ).then(
-      function (v) {
-        return { status: "ok", value: v };
-      },
-      function (e) {
-        if (e && e.amUnsupported) return { status: "unsupported", value: { reason: reasonOf(e) } };
-        return { status: "error", value: { reason: reasonOf(e) } };
-      }
-    );
-  }
-
-  function run(onProgress) {
-    measureCache = null;
-    nativeCache = null;
-    scopeCache = null;
-    meta = {};
-    return loadBootstrap().then(function (b) {
-      bootstrap = b;
-      var out = {};
-      var started = {};
-      probes.forEach(function (p) {
-        if (!p.prime) return;
-        var pending = startProbe(p);
-        pending.catch(function () {});
-        started[p.id] = pending;
-      });
-      var chain = Promise.resolve();
-      probes.forEach(function (p, i) {
-        chain = chain.then(function () {
-          if (onProgress) onProgress(i, probes.length, p.id);
-          return runProbe(p, started[p.id]).then(function (r) {
-            out[p.id] = r;
-          });
-        });
-      });
-      return chain.then(function () {
-        if (onProgress) onProgress(probes.length, probes.length, null);
-        return {
-          probes: out,
-          meta: meta,
-          nonce: b.nonce || "",
-          bootstrapSource: b.source,
-          ids: probes.map(function (p) {
-            return p.id;
-          })
-        };
-      });
-    });
-  }
-
-  function groupOf(id) {
-    for (var i = 0; i < probes.length; i++) {
-      if (probes[i].id === id) return probes[i].group;
-    }
-    return String(id).split(".")[0];
-  }
-
-  return {
-    run: run,
-    ids: probes.map(function (p) {
-      return p.id;
-    }),
-    groupOf: groupOf
-  };
 })();
