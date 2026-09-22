@@ -25,6 +25,11 @@
 
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --hair: 1px solid var(--rule);
+  --hair-strong: 1px solid var(--rule-strong);
+  --caps-tracking: 0.06em;
+  --measure: 82ch;
 }
 
 * {
@@ -43,13 +48,69 @@ body {
   max-width: 100%;
 }
 
+button {
+  font: 12px/1 var(--sans);
+  color: var(--fg);
+  background: var(--bg-panel);
+  border: var(--hair-strong);
+  border-radius: 3px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-inset);
+  text-align: left;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-bottom: var(--hair-strong);
+  white-space: nowrap;
+}
+
+tbody td,
+tbody th {
+  padding: 2px 8px;
+  border-bottom: var(--hair);
+  vertical-align: top;
+  text-align: left;
+}
+
+tbody th {
+  font-weight: 400;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg-stripe);
+}
+
+tbody tr:last-child td,
+tbody tr:last-child th {
+  border-bottom: 0;
+}
+
 .wrap {
   max-width: 1180px;
   margin: 0 auto;
   padding: 18px 16px 64px;
 }
-
-/* ---- header ---- */
 
 .masthead {
   border-bottom: 2px solid var(--rule-strong);
@@ -93,40 +154,12 @@ body {
   word-break: break-word;
 }
 
-/* ---- controls ---- */
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   margin: 12px 0 4px;
-}
-
-button {
-  font: 12px/1 var(--sans);
-  color: var(--fg);
-  background: var(--bg-panel);
-  border: 1px solid var(--rule-strong);
-  border-radius: 3px;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: var(--bg-inset);
-}
-
-button:disabled {
-  color: var(--fg-faint);
-  cursor: default;
-}
-
-button:focus-visible,
-summary:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .status-line {
@@ -137,21 +170,22 @@ input:focus-visible {
   min-height: 1.5em;
 }
 
-/* ---- summary band ---- */
+footer.foot {
+  margin-top: 22px;
+  padding-top: 8px;
+  border-top: var(--hair);
+  color: var(--fg-muted);
+  font-size: 12px;
+  max-width: var(--measure);
+}
 
 .band {
-  border: 1px solid var(--rule-strong);
+  border: var(--hair-strong);
   border-left-width: 4px;
   background: var(--bg-panel);
   padding: 10px 12px;
   margin: 14px 0 6px;
 }
-
-.band[data-det="coherent"] { border-left-color: var(--det-coherent); }
-.band[data-det="discrepant"] { border-left-color: var(--det-discrepant); }
-.band[data-det="instrumented"] { border-left-color: var(--det-instrumented); }
-.band[data-det="insufficient"] { border-left-color: var(--det-insufficient); }
-.band[data-det="not-evaluated"] { border-left-color: var(--det-not-evaluated); }
 
 .band .band-top {
   display: flex;
@@ -197,8 +231,6 @@ input:focus-visible {
   max-width: 78ch;
 }
 
-/* ---- determination marker ---- */
-
 .det {
   font-family: var(--mono);
   font-size: 11px;
@@ -210,12 +242,6 @@ input:focus-visible {
   color: var(--det-insufficient);
 }
 
-.det[data-det="coherent"] { color: var(--det-coherent); }
-.det[data-det="discrepant"] { color: var(--det-discrepant); }
-.det[data-det="instrumented"] { color: var(--det-instrumented); }
-.det[data-det="insufficient"] { color: var(--det-insufficient); }
-.det[data-det="not-evaluated"] { color: var(--det-not-evaluated); }
-
 .word {
   font-family: var(--mono);
   font-size: 12px;
@@ -224,21 +250,19 @@ input:focus-visible {
   border-radius: 2px;
 }
 
-/* ---- section index ---- */
-
 .index {
-  border: 1px solid var(--rule);
+  border: var(--hair);
   margin: 14px 0;
 }
 
 .index h2 {
   font: 600 12px/1 var(--sans);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--caps-tracking);
   color: var(--fg-muted);
   margin: 0;
   padding: 7px 10px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: var(--hair);
   background: var(--bg-panel);
 }
 
@@ -261,21 +285,8 @@ input:focus-visible {
   border-bottom: 1px solid transparent;
 }
 
-.index li a:hover {
-  border-bottom-color: var(--fg-muted);
-}
-
-.index li .idx-count {
-  color: var(--fg-faint);
-  font-family: var(--mono);
-  font-size: 11px;
-  margin-left: auto;
-}
-
-/* ---- sections ---- */
-
 .sec {
-  border: 1px solid var(--rule);
+  border: var(--hair);
   border-left-width: 3px;
   border-left-color: var(--rule-strong);
   margin: 10px 0;
@@ -299,6 +310,7 @@ input:focus-visible {
   margin: 0;
 }
 
+.index li .idx-count,
 .sec > summary .sec-scale {
   color: var(--fg-faint);
   font-family: var(--mono);
@@ -308,7 +320,7 @@ input:focus-visible {
 
 .sec-body {
   padding: 8px 10px 12px;
-  border-top: 1px solid var(--rule);
+  border-top: var(--hair);
 }
 
 .block {
@@ -322,7 +334,7 @@ input:focus-visible {
 .block > h3 {
   font: 600 11px/1 var(--sans);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--caps-tracking);
   color: var(--fg-muted);
   margin: 0 0 5px;
 }
@@ -330,64 +342,30 @@ input:focus-visible {
 .block > p {
   margin: 0 0 6px;
   color: var(--fg-muted);
-  max-width: 82ch;
+  max-width: var(--measure);
 }
 
 .note {
   color: var(--fg-muted);
   font-size: 12px;
   margin: 5px 0 0;
-  max-width: 82ch;
+  max-width: var(--measure);
 }
-
-/* ---- tables ---- */
 
 .scroll {
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: auto;
   max-width: 100%;
-  border: 1px solid var(--rule);
+  border: var(--hair);
 }
 
-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 12px;
+.kv {
+  width: auto;
+  min-width: min(100%, 42ch);
 }
 
-thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--bg-inset);
-  text-align: left;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--rule-strong);
-  white-space: nowrap;
-}
-
-tbody td,
-tbody th {
-  padding: 2px 8px;
-  border-bottom: 1px solid var(--rule);
-  vertical-align: top;
-  text-align: left;
-}
-
-tbody tr:nth-child(even) {
-  background: var(--bg-stripe);
-}
-
-tbody tr:last-child td,
-tbody tr:last-child th {
-  border-bottom: 0;
-}
-
-tbody th {
-  font-weight: 400;
-  color: var(--fg-muted);
-  white-space: nowrap;
+.kv tbody th {
+  width: 1%;
+  padding-right: 16px;
 }
 
 td.v,
@@ -411,35 +389,6 @@ td.prose {
   max-width: 46ch;
 }
 
-.kv {
-  width: auto;
-  min-width: min(100%, 42ch);
-}
-
-.kv tbody th {
-  width: 1%;
-  padding-right: 16px;
-}
-
-/* Values are not coloured for being true or false: colour on this page marks a
-   determination, and a measured value is not one. The one exception is a value
-   that disagrees with another reading of the same quantity, and it carries the
-   disagreement in the row's own words as well as in its colour. */
-.v-true,
-.v-false {
-  color: var(--fg);
-}
-
-.v-none {
-  color: var(--fg-faint);
-}
-
-.v-flag {
-  color: var(--det-discrepant);
-}
-
-/* ---- probe status strip ---- */
-
 .probes {
   display: flex;
   flex-wrap: wrap;
@@ -459,9 +408,6 @@ td.prose {
   color: var(--fg);
 }
 
-.probes span.pr.s-unsupported b { color: var(--det-insufficient); }
-.probes span.pr.s-error b { color: var(--det-instrumented); }
-
 .absent {
   font-family: var(--mono);
   font-size: 12px;
@@ -469,16 +415,46 @@ td.prose {
   margin: 0;
 }
 
-footer.foot {
-  margin-top: 22px;
-  padding-top: 8px;
-  border-top: 1px solid var(--rule);
-  color: var(--fg-muted);
-  font-size: 12px;
-  max-width: 82ch;
+button:hover:not(:disabled) {
+  background: var(--bg-inset);
 }
 
-/* ---- print ---- */
+button:disabled {
+  color: var(--fg-faint);
+  cursor: default;
+}
+
+.index li a:hover {
+  border-bottom-color: var(--fg-muted);
+}
+
+.band[data-det="coherent"] { border-left-color: var(--det-coherent); }
+.band[data-det="discrepant"] { border-left-color: var(--det-discrepant); }
+.band[data-det="instrumented"] { border-left-color: var(--det-instrumented); }
+.band[data-det="insufficient"] { border-left-color: var(--det-insufficient); }
+.band[data-det="not-evaluated"] { border-left-color: var(--det-not-evaluated); }
+
+.det[data-det="coherent"] { color: var(--det-coherent); }
+.det[data-det="discrepant"] { color: var(--det-discrepant); }
+.det[data-det="instrumented"] { color: var(--det-instrumented); }
+.det[data-det="insufficient"] { color: var(--det-insufficient); }
+.det[data-det="not-evaluated"] { color: var(--det-not-evaluated); }
+
+.probes span.pr.s-unsupported b { color: var(--det-insufficient); }
+.probes span.pr.s-error b { color: var(--det-instrumented); }
+
+.v-true,
+.v-false {
+  color: var(--fg);
+}
+
+.v-none {
+  color: var(--fg-faint);
+}
+
+.v-flag {
+  color: var(--det-discrepant);
+}
 
 @media print {
   :root {
